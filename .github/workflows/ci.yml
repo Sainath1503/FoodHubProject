@@ -22,7 +22,7 @@ jobs:
     name: Unit, integration, and E2E tests
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.45.3-jammy
+      image: mcr.microsoft.com/playwright:v1.60.0-jammy
 
     steps:
       - name: Checkout code
