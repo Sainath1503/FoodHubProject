@@ -55,6 +55,7 @@ Swagger/OpenAPI documentation is available at:
 - Raw OpenAPI JSON: `http://127.0.0.1:4173/openapi.json`
 
 The HTML test report is generated at `qa-artifacts/test-report.html`.
+The Playwright E2E report is generated at `playwright-report/index.html` and includes UI screenshots attached from the E2E checks.
 
 ## Test Automation Strategy
 
