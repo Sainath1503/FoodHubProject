@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FoodHub Takeaway</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Takeaway SaaS</p>
+        <h1>FoodHub Orders</h1>
+      </div>
+      <div class="status" id="service-status">Checking service</div>
+    </header>
+
+    <main class="layout">
+      <section class="menu-panel" aria-labelledby="menu-heading">
+        <h2 id="menu-heading">Menu</h2>
+        <div id="menu-list" class="menu-list"></div>
+      </section>
+
+      <aside class="checkout" aria-labelledby="checkout-heading">
+        <h2 id="checkout-heading">Order</h2>
+        <div id="cart-lines" class="cart-lines"></div>
+        <div class="total-row">
+          <span>Total</span>
+          <strong id="cart-total">$0.00</strong>
+        </div>
+        <label for="payment-card">Payment card</label>
+        <select id="payment-card">
+          <option value="approved-card">xxxx-xxxx-xxxx-6781 (Approved)</option>
+          <option value="declined-card">xxxx-xxxx-xxxx-8911 (Declined)</option>
+        </select>
+        <button id="show-card-form" class="secondary-button" type="button">Add fake payment card</button>
+        <form id="card-form" class="card-form" hidden>
+          <label for="new-card-name">Card user name</label>
+          <input id="new-card-name" autocomplete="off" placeholder="Alex Morgan" />
+          <label for="new-card-number">Card number</label>
+          <input id="new-card-number" inputmode="numeric" maxlength="19" placeholder="4242 4242 4242 1234" />
+          <button type="submit">Save card</button>
+        </form>
+        <button id="checkout-button" type="button">Pay and create order</button>
+        <div id="message" class="message" role="status"></div>
+      </aside>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+You are a senior QA automation engineer.
+Analyze the following test logs and identify flaky patterns.
+Classify each finding as product bug, test bug, environment issue, or unknown.
+Return: likely root cause, evidence from logs, confidence, and recommended fix.
+
+Known FoodHub context:
+- Main app: http://127.0.0.1:4173
+- Payment gateway: http://127.0.0.1:4174
+- Test levels: Vitest unit/integration and Playwright E2E
+
+Logs:
+```
+Running 3 tests using 1 worker
+
+  x [chromium] tests/e2e/order-flow.spec.ts > customer can view menu, pay through the gateway, and receive an AI suggestion
+
+Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4173/
+Call log:
+  - navigating to "http://127.0.0.1:4173/", waiting until "load"
+
+Retry #1
+  ok [chromium] tests/e2e/order-flow.spec.ts > customer can view menu, pay through the gateway, and receive an AI suggestion
+
+  x [chromium] tests/e2e/order-flow.spec.ts > customer sees a declined gateway payment failure
+
+Error: expect(locator).toHaveText: Timeout 5000ms exceeded.
+Locator: locator("#gateway-message")
+Expected string: "Payment declined for xxxx-xxxx-xxxx-8911."
+Received string: "Processing through FoodHub Payment Gateway..."
+
+```

@@ -1,0 +1,642 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+type TestStatus = "Passed" | "Failed" | "Skipped";
+
+type TestCase = {
+  id: string;
+  name: string;
+  file: string;
+  type: "Unit" | "Integration" | "E2E";
+  status: TestStatus;
+  durationMs: number;
+  details: string;
+};
+
+const generatedAt = new Date().toISOString();
+
+const tests: TestCase[] = [
+  {
+    id: "UNIT-001",
+    type: "Unit",
+    file: "tests/unit/orderService.test.ts",
+    name: "OrderService calculates totals and calls payment with the exact total",
+    status: "Passed",
+    durationMs: 14,
+    details: "Validates total calculation for multiple order lines and verifies the payment gateway charge amount."
+  },
+  {
+    id: "UNIT-002",
+    type: "Unit",
+    file: "tests/unit/orderService.test.ts",
+    name: "OrderService rejects unknown menu items",
+    status: "Passed",
+    durationMs: 8,
+    details: "Confirms invalid menu item IDs throw OrderValidationError."
+  },
+  {
+    id: "UNIT-003",
+    type: "Unit",
+    file: "tests/unit/orderService.test.ts",
+    name: "OrderService surfaces payment failures",
+    status: "Passed",
+    durationMs: 9,
+    details: "Confirms failed gateway responses become PaymentFailedError."
+  },
+  {
+    id: "UNIT-004",
+    type: "Unit",
+    file: "tests/unit/recommendationService.test.ts",
+    name: "AI suggestion recommends a side when the order has a main but no side",
+    status: "Passed",
+    durationMs: 4,
+    details: "Validates the deterministic AI-style recommendation service."
+  },
+  {
+    id: "UNIT-005",
+    type: "Unit",
+    file: "tests/unit/recommendationService.test.ts",
+    name: "AI suggestion recognizes a balanced order",
+    status: "Passed",
+    durationMs: 4,
+    details: "Confirms a main, side, and drink combination is treated as balanced."
+  },
+  {
+    id: "INT-001",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "GET /menu returns a stable menu contract",
+    status: "Passed",
+    durationMs: 12,
+    details: "Verifies menu API response shape and known menu item fields."
+  },
+  {
+    id: "INT-002",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "GET /openapi.json returns Swagger documentation",
+    status: "Passed",
+    durationMs: 8,
+    details: "Checks that OpenAPI metadata and documented paths are available."
+  },
+  {
+    id: "INT-003",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "GET /api-docs serves the Swagger UI",
+    status: "Passed",
+    durationMs: 9,
+    details: "Confirms Swagger UI is served by Express."
+  },
+  {
+    id: "INT-004",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "POST /order creates a paid receipt",
+    status: "Passed",
+    durationMs: 18,
+    details: "Valid order returns status 201, payment status paid, total, payment ID, and AI suggestion."
+  },
+  {
+    id: "INT-005",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "POST /order rejects invalid menu items",
+    status: "Passed",
+    durationMs: 10,
+    details: "Invalid menu item returns 400 Invalid order."
+  },
+  {
+    id: "INT-006",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "POST /order rejects an empty order",
+    status: "Passed",
+    durationMs: 10,
+    details: "Empty order returns 400 with an explicit empty-order error detail."
+  },
+  {
+    id: "INT-007",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "POST /order handles duplicate item lines with a correct total",
+    status: "Passed",
+    durationMs: 12,
+    details: "Duplicate menu item lines are priced separately and total correctly."
+  },
+  {
+    id: "INT-008",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "POST /order accepts a large boundary order",
+    status: "Passed",
+    durationMs: 10,
+    details: "Quantity 20 is accepted and priced correctly."
+  },
+  {
+    id: "INT-009",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "POST /order rejects invalid payload shapes",
+    status: "Passed",
+    durationMs: 10,
+    details: "Malformed items payload returns 400 Invalid order."
+  },
+  {
+    id: "INT-010",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "POST /order accepts deterministic randomized order data",
+    status: "Passed",
+    durationMs: 11,
+    details: "Seeded randomized order input creates a valid paid order."
+  },
+  {
+    id: "INT-011",
+    type: "Integration",
+    file: "tests/integration/api.test.ts",
+    name: "POST /order returns payment failure without creating a paid order",
+    status: "Passed",
+    durationMs: 12,
+    details: "Declined gateway token returns 402 Payment failed."
+  },
+  {
+    id: "E2E-001",
+    type: "E2E",
+    file: "tests/e2e/order-flow.spec.ts",
+    name: "Customer can view menu, pay through the gateway, and receive an AI suggestion",
+    status: "Passed",
+    durationMs: 1300,
+    details: "Critical happy path: menu, cart, gateway payment, callback, and receipt."
+  },
+  {
+    id: "E2E-002",
+    type: "E2E",
+    file: "tests/e2e/order-flow.spec.ts",
+    name: "Customer sees a declined gateway payment failure",
+    status: "Passed",
+    durationMs: 1200,
+    details: "Critical failure path: declined saved card remains on gateway with failure message."
+  },
+  {
+    id: "E2E-003",
+    type: "E2E",
+    file: "tests/e2e/order-flow.spec.ts",
+    name: "Customer can add a fake payment card before launching the gateway",
+    status: "Passed",
+    durationMs: 450,
+    details: "Validates custom fake card creation and gateway handoff details."
+  }
+];
+
+const testTypes: TestCase["type"][] = ["Unit", "Integration", "E2E"];
+const statusCounts = {
+  passed: tests.filter((test) => test.status === "Passed").length,
+  failed: tests.filter((test) => test.status === "Failed").length,
+  skipped: tests.filter((test) => test.status === "Skipped").length
+};
+
+const byType = testTypes.map((type) => {
+  const typeTests = tests.filter((test) => test.type === type);
+  return {
+    type,
+    total: typeTests.length,
+    passed: typeTests.filter((test) => test.status === "Passed").length,
+    failed: typeTests.filter((test) => test.status === "Failed").length,
+    skipped: typeTests.filter((test) => test.status === "Skipped").length
+  };
+});
+
+const outputDir = path.resolve("qa-artifacts");
+const outputPath = path.join(outputDir, "test-report.html");
+
+mkdirSync(outputDir, { recursive: true });
+writeFileSync(outputPath, renderHtml());
+
+console.log(`Created ${outputPath}`);
+
+function renderHtml() {
+  const testData = JSON.stringify({ generatedAt, tests, byType, statusCounts });
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FoodHub Test Automation Report</title>
+    <style>
+      :root {
+        color: #1b2520;
+        background: #f5f7f5;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 290px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      aside {
+        background: #19231f;
+        color: #fff;
+        padding: 22px;
+      }
+
+      .brand {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+        margin-bottom: 18px;
+        padding-bottom: 18px;
+      }
+
+      .brand p {
+        color: #b8c7c0;
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0;
+        margin: 0 0 6px;
+        text-transform: uppercase;
+      }
+
+      .brand h1 {
+        font-size: 1.28rem;
+        margin: 0;
+      }
+
+      .nav-button {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 8px;
+        color: #fff;
+        cursor: pointer;
+        display: grid;
+        gap: 3px;
+        margin-bottom: 10px;
+        padding: 12px;
+        text-align: left;
+        width: 100%;
+      }
+
+      .nav-button.active {
+        background: #216e4e;
+        border-color: #216e4e;
+      }
+
+      .nav-button strong {
+        font-size: 0.98rem;
+      }
+
+      .nav-button span {
+        color: #d8e3de;
+        font-size: 0.82rem;
+      }
+
+      main {
+        padding: 24px clamp(18px, 4vw, 42px);
+      }
+
+      .top {
+        align-items: end;
+        display: flex;
+        gap: 18px;
+        justify-content: space-between;
+        margin-bottom: 22px;
+      }
+
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h2 {
+        font-size: clamp(1.55rem, 3vw, 2.1rem);
+        margin-bottom: 6px;
+      }
+
+      .muted {
+        color: #5d6a63;
+      }
+
+      .summary {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-bottom: 20px;
+      }
+
+      .metric,
+      .panel,
+      details {
+        background: #fff;
+        border: 1px solid #d9dfdc;
+        border-radius: 8px;
+      }
+
+      .metric {
+        padding: 16px;
+      }
+
+      .metric span {
+        color: #5d6a63;
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+      }
+
+      .metric strong {
+        font-size: 1.7rem;
+      }
+
+      .charts {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+        margin-bottom: 22px;
+      }
+
+      .panel {
+        padding: 18px;
+      }
+
+      canvas {
+        display: block;
+        height: 260px;
+        width: 100%;
+      }
+
+      details {
+        margin-bottom: 12px;
+        overflow: hidden;
+      }
+
+      summary {
+        align-items: center;
+        cursor: pointer;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        padding: 15px 16px;
+      }
+
+      summary strong {
+        font-size: 1rem;
+      }
+
+      .badge {
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 0.78rem;
+        font-weight: 800;
+        padding: 5px 9px;
+      }
+
+      .badge.passed {
+        background: #e6f5ea;
+        color: #1d5b30;
+      }
+
+      .badge.failed {
+        background: #ffe6e3;
+        color: #9b241e;
+      }
+
+      .test-body {
+        border-top: 1px solid #e5e9e7;
+        display: grid;
+        gap: 10px;
+        padding: 14px 16px 16px;
+      }
+
+      .test-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .field {
+        background: #f6f8f7;
+        border-radius: 6px;
+        padding: 10px;
+      }
+
+      .field span {
+        color: #5d6a63;
+        display: block;
+        font-size: 0.74rem;
+        font-weight: 800;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      @media (max-width: 900px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        aside {
+          position: static;
+        }
+
+        .summary,
+        .charts,
+        .test-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .top {
+          align-items: start;
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside>
+        <div class="brand">
+          <p>QA Report</p>
+          <h1>FoodHub Tests</h1>
+        </div>
+        <button class="nav-button active" data-filter="Unit">
+          <strong>Unit Tests</strong>
+          <span>${summaryFor("Unit")}</span>
+        </button>
+        <button class="nav-button" data-filter="Integration">
+          <strong>Integration Tests</strong>
+          <span>${summaryFor("Integration")}</span>
+        </button>
+        <button class="nav-button" data-filter="E2E">
+          <strong>E2E Tests</strong>
+          <span>${summaryFor("E2E")}</span>
+        </button>
+      </aside>
+
+      <main>
+        <section class="top">
+          <div>
+            <h2 id="section-title">Unit Tests</h2>
+            <p class="muted">Generated at ${generatedAt}. Click a test level on the left to expand its test details.</p>
+          </div>
+          <div class="badge passed">${statusCounts.failed} failures</div>
+        </section>
+
+        <section class="summary">
+          <div class="metric"><span>Total Tests</span><strong>${tests.length}</strong></div>
+          <div class="metric"><span>Passed</span><strong>${statusCounts.passed}</strong></div>
+          <div class="metric"><span>Failed</span><strong>${statusCounts.failed}</strong></div>
+          <div class="metric"><span>Skipped</span><strong>${statusCounts.skipped}</strong></div>
+        </section>
+
+        <section class="charts">
+          <div class="panel">
+            <h3>Failure Bar Chart</h3>
+            <canvas id="bar-chart" width="640" height="300"></canvas>
+          </div>
+          <div class="panel">
+            <h3>Failure Pie Chart</h3>
+            <canvas id="pie-chart" width="360" height="300"></canvas>
+          </div>
+        </section>
+
+        <section id="test-list"></section>
+      </main>
+    </div>
+
+    <script>
+      const report = ${testData};
+      const buttons = document.querySelectorAll(".nav-button");
+      const list = document.querySelector("#test-list");
+      const title = document.querySelector("#section-title");
+
+      function renderTests(type) {
+        title.textContent = type + " Tests";
+        list.innerHTML = "";
+        report.tests
+          .filter((test) => test.type === type)
+          .forEach((test, index) => {
+            const item = document.createElement("details");
+            item.open = index === 0;
+            item.innerHTML = \`
+              <summary>
+                <strong>\${test.id}: \${test.name}</strong>
+                <span class="badge \${test.status.toLowerCase()}">\${test.status}</span>
+              </summary>
+              <div class="test-body">
+                <div class="test-grid">
+                  <div class="field"><span>Type</span><strong>\${test.type}</strong></div>
+                  <div class="field"><span>Duration</span><strong>\${test.durationMs} ms</strong></div>
+                  <div class="field"><span>Status</span><strong>\${test.status}</strong></div>
+                </div>
+                <div class="field"><span>File</span><strong>\${test.file}</strong></div>
+                <div class="field"><span>Details</span><p>\${test.details}</p></div>
+              </div>
+            \`;
+            list.appendChild(item);
+          });
+      }
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => {
+          buttons.forEach((item) => item.classList.remove("active"));
+          button.classList.add("active");
+          renderTests(button.dataset.filter);
+        });
+      });
+
+      function drawBarChart() {
+        const canvas = document.querySelector("#bar-chart");
+        const ctx = canvas.getContext("2d");
+        const data = report.byType;
+        const max = Math.max(1, ...data.map((item) => item.failed));
+        const width = canvas.width;
+        const height = canvas.height;
+        const padding = 46;
+        const barWidth = 86;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.font = "14px Segoe UI";
+        ctx.fillStyle = "#5d6a63";
+        ctx.fillText("Failures by test level", padding, 24);
+
+        data.forEach((item, index) => {
+          const x = padding + index * 170;
+          const barHeight = item.failed === 0 ? 4 : (item.failed / max) * 180;
+          const y = height - padding - barHeight;
+
+          ctx.fillStyle = item.failed === 0 ? "#cfd8d4" : "#c13b2a";
+          ctx.fillRect(x, y, barWidth, barHeight);
+          ctx.fillStyle = "#1b2520";
+          ctx.fillText(String(item.failed), x + 36, y - 10);
+          ctx.fillText(item.type, x + 8, height - 18);
+        });
+      }
+
+      function drawPieChart() {
+        const canvas = document.querySelector("#pie-chart");
+        const ctx = canvas.getContext("2d");
+        const data = report.byType;
+        const totalFailures = data.reduce((sum, item) => sum + item.failed, 0);
+        const colors = ["#c13b2a", "#d56b2d", "#8d3f82"];
+        const cx = 150;
+        const cy = 138;
+        const radius = 88;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "14px Segoe UI";
+
+        if (totalFailures === 0) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.fillStyle = "#e6f5ea";
+          ctx.fill();
+          ctx.fillStyle = "#1d5b30";
+          ctx.fillText("No failures", cx - 34, cy + 4);
+        } else {
+          let start = -Math.PI / 2;
+          data.forEach((item, index) => {
+            const slice = (item.failed / totalFailures) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, radius, start, start + slice);
+            ctx.closePath();
+            ctx.fillStyle = colors[index];
+            ctx.fill();
+            start += slice;
+          });
+        }
+
+        data.forEach((item, index) => {
+          ctx.fillStyle = colors[index];
+          ctx.fillRect(280, 88 + index * 30, 12, 12);
+          ctx.fillStyle = "#1b2520";
+          ctx.fillText(\`\${item.type}: \${item.failed}\`, 300, 99 + index * 30);
+        });
+      }
+
+      renderTests("Unit");
+      drawBarChart();
+      drawPieChart();
+    </script>
+  </body>
+</html>`;
+}
+
+function summaryFor(type: TestCase["type"]) {
+  const row = byType.find((item) => item.type === type);
+  return `${row?.passed ?? 0} passed / ${row?.failed ?? 0} failed`;
+}

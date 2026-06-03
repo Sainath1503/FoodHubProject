@@ -1,0 +1,138 @@
+import request from "supertest";
+import { describe, expect, it } from "vitest";
+import { createApp } from "../../src/app.js";
+import {
+  createBoundaryQuantityOrder,
+  createDeclinedPaymentOrder,
+  createDuplicateItemOrder,
+  createEmptyOrder,
+  createInvalidOrder,
+  createOrder,
+  createRandomOrder
+} from "../fixtures/orderFactory.js";
+
+describe("FoodHub API", () => {
+  const app = createApp();
+
+  it("GET /menu returns a stable menu contract", async () => {
+    const response = await request(app).get("/menu").expect(200);
+
+    expect(response.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "burger-classic",
+          name: "Classic Burger",
+          price: 9.5,
+          category: "main"
+        })
+      ])
+    );
+  });
+
+  it("GET /openapi.json returns Swagger documentation", async () => {
+    const response = await request(app).get("/openapi.json").expect(200);
+
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        openapi: "3.0.3",
+        info: expect.objectContaining({ title: "FoodHub Takeaway SaaS API" }),
+        paths: expect.objectContaining({
+          "/menu": expect.any(Object),
+          "/order": expect.any(Object)
+        })
+      })
+    );
+  });
+
+  it("GET /api-docs serves the Swagger UI", async () => {
+    const response = await request(app).get("/api-docs/").expect(200);
+
+    expect(response.text).toContain("Swagger UI");
+  });
+
+  it("POST /order creates a paid receipt", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send(
+        createOrder([
+          { menuItemId: "wrap-veggie", quantity: 1 },
+          { menuItemId: "lemonade", quantity: 2 }
+        ])
+      )
+      .expect(201);
+
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        total: 14.75,
+        paymentStatus: "paid",
+        paymentId: expect.stringMatching(/^pay_/),
+        aiSuggestion: expect.any(String)
+      })
+    );
+  });
+
+  it("POST /order rejects invalid menu items", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send(createInvalidOrder())
+      .expect(400);
+
+    expect(response.body.error).toBe("Invalid order");
+  });
+
+  it("POST /order rejects an empty order", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send(createEmptyOrder())
+      .expect(400);
+
+    expect(response.body).toEqual({
+      error: "Invalid order",
+      details: "Order must contain at least one item"
+    });
+  });
+
+  it("POST /order handles duplicate item lines with a correct total", async () => {
+    const response = await request(app).post("/order").send(createDuplicateItemOrder()).expect(201);
+
+    expect(response.body.total).toBe(28.5);
+    expect(response.body.items).toHaveLength(2);
+  });
+
+  it("POST /order accepts a large boundary order", async () => {
+    const response = await request(app).post("/order").send(createBoundaryQuantityOrder(20)).expect(201);
+
+    expect(response.body.total).toBe(190);
+  });
+
+  it("POST /order rejects invalid payload shapes", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send({
+        paymentToken: "gateway_paid_test123",
+        items: { menuItemId: "burger-classic", quantity: 1 }
+      })
+      .expect(400);
+
+    expect(response.body.error).toBe("Invalid order");
+  });
+
+  it("POST /order accepts deterministic randomized order data", async () => {
+    const response = await request(app).post("/order").send(createRandomOrder(7)).expect(201);
+
+    expect(response.body.items.length).toBeGreaterThan(0);
+    expect(response.body.total).toBeGreaterThan(0);
+  });
+
+  it("POST /order returns payment failure without creating a paid order", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send(createDeclinedPaymentOrder())
+      .expect(402);
+
+    expect(response.body).toEqual({
+      error: "Payment failed",
+      details: "Payment authorization failed"
+    });
+  });
+});
