@@ -49,18 +49,26 @@ jobs:
       - name: Run E2E tests
         run: npm run test:e2e
 
+      - name: Generate QA test report
+        if: always()
+        run: npm run test:report
+
+      - name: Generate AI failure analysis prompt
+        if: always()
+        run: npm run ai:analyze-failures -- tests/fixtures/failureLogs/sample-flaky-log.txt
+
+      - name: Upload QA test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: foodhub-qa-test-artifacts
+          path: qa-artifacts/
+          if-no-files-found: ignore
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
-          if-no-files-found: ignore
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: test-results/
           if-no-files-found: ignore
