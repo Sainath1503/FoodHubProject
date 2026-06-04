@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
-import type { MenuItem, OrderReceipt, OrderRequest, PaymentGateway } from "../domain/types.js";
+import type { MenuItem, OrderReceipt, OrderRepository, OrderRequest, PaymentGateway } from "../domain/types.js";
 import { OrderValidationError, PaymentFailedError } from "../errors.js";
 import { createAiSuggestion } from "./recommendationService.js";
 
 export class OrderService {
   constructor(
     private readonly menu: MenuItem[],
-    private readonly paymentGateway: PaymentGateway
+    private readonly paymentGateway: PaymentGateway,
+    private readonly orderRepository?: OrderRepository
   ) {}
 
   async createOrder(request: OrderRequest): Promise<OrderReceipt> {
@@ -18,7 +19,7 @@ export class OrderService {
       throw new PaymentFailedError(payment.reason);
     }
 
-    return {
+    const receipt: OrderReceipt = {
       orderId: randomUUID(),
       items: lines,
       total,
@@ -26,6 +27,10 @@ export class OrderService {
       paymentId: payment.paymentId,
       aiSuggestion: createAiSuggestion(request.items, this.menu)
     };
+
+    await this.orderRepository?.save(receipt);
+
+    return receipt;
   }
 
   private validateAndPrice(request: OrderRequest): OrderReceipt["items"] {

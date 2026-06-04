@@ -39,7 +39,13 @@ Payment is handled by a separate fake service named **FoodHub Payment Gateway** 
 npm install
 npm run dev
 npm run test
+npm run test:contract
+npm run test:coverage
 npm run test:e2e
+npm run test:load:smoke
+npm run test:load
+npm run test:load:docker:smoke
+npm run test:load:docker
 npm run test:all
 npm run test:report
 npm run ai:coverage
@@ -62,8 +68,60 @@ The Playwright E2E report is generated at `playwright-report/index.html` and inc
 - Unit tests provide fast service-level feedback with Vitest.
 - Integration tests validate API contracts, request/response behavior, and error handling with Supertest.
 - E2E tests validate critical business journeys through the UI and FoodHub Payment Gateway with Playwright.
-- The GitHub Actions PR gate runs unit, integration, and E2E tests inside a Docker container whenever a pull request targets `main`.
+- Critical business logic coverage is enforced at 90%+ for statements, branches, functions, and lines with `npm run test:coverage`.
+- Contract tests validate the consumer/provider agreement between FoodHub Web and FoodHub API with Pact.
+- Load tests exercise `/health`, `/menu`, and `/order` with k6 thresholds for request failures, p95 latency, and paid-order failures.
+- Testcontainers integration tests start a real PostgreSQL database and verify paid orders can be persisted and read back.
+- Visual regression uses Playwright screenshot snapshots for key UI states: menu visible, cart ready, and gateway ready.
+- The GitHub Actions PR gate runs unit, integration, contract, coverage, and E2E checks as parallel jobs whenever a pull request targets `main`.
 - To block merges when tests fail, enable branch protection or a repository ruleset for `main` and require the `Unit, integration, and E2E tests` status check before merging.
+
+## Load Testing With k6
+
+The k6 load test is in `tests/load/foodhub-api.k6.js`.
+It requires the k6 CLI to be installed and available on your `PATH`.
+
+Start the API first:
+
+```bash
+npm run dev:app
+```
+
+Then run a short smoke load test:
+
+```bash
+npm run test:load:smoke
+```
+
+Or run the default load profile:
+
+```bash
+npm run test:load
+```
+
+You can also run k6 through Docker. This is useful for CI or machines where you do not want to install the k6 CLI directly:
+
+```bash
+npm run test:load:docker:smoke
+npm run test:load:docker
+```
+
+The Docker runner targets `http://host.docker.internal:4173` by default so the container can reach the API running on your host machine.
+Start the API with `HOST=0.0.0.0` when running Docker-based load tests so the container can reach it.
+
+The default target is `http://127.0.0.1:4173`. You can override it in PowerShell:
+
+```powershell
+$env:BASE_URL="http://127.0.0.1:4173"; $env:VUS="10"; npm run test:load
+```
+
+Or in bash:
+
+```bash
+BASE_URL=http://127.0.0.1:4173 VUS=10 npm run test:load
+```
+
+The test writes a JSON summary to `qa-artifacts/load-test-summary.json`.
 
 ## Test Data Strategy
 

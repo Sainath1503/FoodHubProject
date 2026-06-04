@@ -6,7 +6,12 @@ Return: likely root cause, evidence from logs, confidence, and recommended fix.
 Known FoodHub context:
 - Main app: http://127.0.0.1:4173
 - Payment gateway: http://127.0.0.1:4174
-- Test levels: Vitest unit/integration and Playwright E2E
+- Test levels: Vitest unit/integration, Pact contract, Testcontainers PostgreSQL persistence, Playwright E2E, and k6 load tests
+- API endpoints: GET /health, GET /menu, POST /order, GET /openapi.json, /api-docs
+- Contract testing: Pact verifies FoodHub Web consumer expectations against FoodHub API provider
+- Real DB testing: Testcontainers starts PostgreSQL and verifies paid orders persist
+- Load testing: k6 Docker hits /health, /menu, and /order; one iteration makes one request to each endpoint
+- Test data factories: createOrder, createInvalidOrder, createEmptyOrder, createDuplicateItemOrder, createRandomOrder, createApprovedCheckout, createDeclinedPaymentCard, createFakePaymentCard
 
 Logs:
 ```

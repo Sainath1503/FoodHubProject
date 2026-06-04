@@ -32,6 +32,21 @@ const patterns: Pattern[] = [
     name: "Retry signal",
     regex: /retry|flaky|on-first-retry/i,
     explanation: "May indicate the test only passes after a retry and needs stabilization."
+  },
+  {
+    name: "Pact contract verification",
+    regex: /pact|contract|provider|consumer|verifier|matching body/i,
+    explanation: "May indicate consumer/provider contract drift or Pact verifier setup issues."
+  },
+  {
+    name: "Testcontainers or PostgreSQL",
+    regex: /testcontainers|postgres|postgresql|container|docker|ryuk|database|connection uri/i,
+    explanation: "May indicate Docker availability, PostgreSQL startup, schema migration, or real DB persistence issues."
+  },
+  {
+    name: "k6 load threshold",
+    regex: /k6|http_req_duration|http_req_failed|vus|iterations|threshold|foodhub_order_failures/i,
+    explanation: "May indicate performance regression, threshold failure, or load-test environment instability."
   }
 ];
 
@@ -87,7 +102,12 @@ const prompt = [
   "Known FoodHub context:",
   "- Main app: http://127.0.0.1:4173",
   "- Payment gateway: http://127.0.0.1:4174",
-  "- Test levels: Vitest unit/integration and Playwright E2E",
+  "- Test levels: Vitest unit/integration, Pact contract, Testcontainers PostgreSQL persistence, Playwright E2E, and k6 load tests",
+  "- API endpoints: GET /health, GET /menu, POST /order, GET /openapi.json, /api-docs",
+  "- Contract testing: Pact verifies FoodHub Web consumer expectations against FoodHub API provider",
+  "- Real DB testing: Testcontainers starts PostgreSQL and verifies paid orders persist",
+  "- Load testing: k6 Docker hits /health, /menu, and /order; one iteration makes one request to each endpoint",
+  "- Test data factories: createOrder, createInvalidOrder, createEmptyOrder, createDuplicateItemOrder, createRandomOrder, createApprovedCheckout, createDeclinedPaymentCard, createFakePaymentCard",
   "",
   "Logs:",
   "```",
