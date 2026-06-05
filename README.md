@@ -73,8 +73,8 @@ The Playwright E2E report is generated at `playwright-report/index.html` and inc
 - Load tests exercise `/health`, `/menu`, and `/order` with k6 thresholds for request failures, p95 latency, and paid-order failures.
 - Testcontainers integration tests start a real PostgreSQL database and verify paid orders can be persisted and read back.
 - Visual regression uses Playwright screenshot snapshots for key UI states: menu visible, cart ready, and gateway ready.
-- The GitHub Actions PR gate runs unit, integration, contract, coverage, and E2E checks as parallel jobs whenever a pull request targets `main`.
-- To block merges when tests fail, enable branch protection or a repository ruleset for `main` and require the `Unit, integration, and E2E tests` status check before merging.
+- The GitHub Actions PR gate runs unit, integration, contract, coverage, E2E, and k6 load checks as parallel jobs whenever a pull request targets `main`.
+- To block merges when tests fail, enable branch protection or a repository ruleset for `main` and require the PR gate status checks before merging.
 
 ## Load Testing With k6
 

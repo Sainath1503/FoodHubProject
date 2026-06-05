@@ -159,6 +159,63 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
 
+  load-tests:
+    name: Load tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Run k6 PR load test
+        run: |
+          mkdir -p qa-artifacts
+          node dist/src/server.js &
+          api_pid=$!
+          trap "kill $api_pid" EXIT
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/health > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          if ! curl --fail --silent http://127.0.0.1:4173/health > /dev/null; then
+            echo "FoodHub API did not become healthy in time"
+            exit 1
+          fi
+
+          docker run --rm --network host \
+            -e BASE_URL=http://127.0.0.1:4173 \
+            -e VUS=1 \
+            -e RAMP_UP=5s \
+            -e STEADY_STATE=10s \
+            -e RAMP_DOWN=5s \
+            -e THINK_TIME_SECONDS=0.2 \
+            -v "${{ github.workspace }}:/work" \
+            -w /work \
+            grafana/k6:2.0.0 run tests/load/foodhub-api.k6.js
+
+      - name: Upload load test summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-summary
+          path: qa-artifacts/load-test-summary.json
+          if-no-files-found: ignore
+
   qa-report:
     name: QA report artifacts
     runs-on: ubuntu-latest
@@ -168,6 +225,7 @@ jobs:
       - contract-tests
       - coverage-gate
       - e2e-tests
+      - load-tests
     if: always()
 
     steps:
@@ -188,6 +246,13 @@ jobs:
         with:
           name: critical-logic-coverage
           path: qa-artifacts/coverage/
+        continue-on-error: true
+
+      - name: Download load test summary
+        uses: actions/download-artifact@v4
+        with:
+          name: load-test-summary
+          path: qa-artifacts/
         continue-on-error: true
 
       - name: Generate QA test report
