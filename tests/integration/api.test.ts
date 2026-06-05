@@ -14,6 +14,15 @@ import {
 describe("FoodHub API", () => {
   const app = createApp();
 
+  it("GET /health returns service health metadata", async () => {
+    const response = await request(app).get("/health").expect(200);
+
+    expect(response.body).toEqual({
+      status: "ok",
+      service: "foodhub-takeaway-saas"
+    });
+  });
+
   it("GET /menu returns a stable menu contract", async () => {
     const response = await request(app).get("/menu").expect(200);
 

@@ -20,6 +20,8 @@ const orderSchema = z.object({
   cardId: z.string().optional()
 });
 
+const serviceName = "foodhub-takeaway-saas";
+
 export function createApp(orderService = new OrderService(menu, new FakePaymentGateway())) {
   const app = express();
 
@@ -31,7 +33,7 @@ export function createApp(orderService = new OrderService(menu, new FakePaymentG
   app.use(express.static("public"));
 
   app.get("/health", (_request, response) => {
-    response.json({ status: "ok" });
+    response.json({ status: "ok", service: serviceName });
   });
 
   app.get("/openapi.json", (_request, response) => {
