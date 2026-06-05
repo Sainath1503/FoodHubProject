@@ -7,6 +7,7 @@ import { OrderValidationError, PaymentFailedError } from "./errors.js";
 import { OrderService } from "./services/orderService.js";
 import { FakePaymentGateway } from "./services/paymentService.js";
 import { foodHubOpenApiSpec } from "./openapi.js";
+import { requestLogger } from "./middleware/requestLogger.js";
 
 const orderSchema = z.object({
   items: z.array(
@@ -24,6 +25,9 @@ export function createApp(orderService = new OrderService(menu, new FakePaymentG
 
   app.use(cors());
   app.use(express.json());
+  if (process.env.NODE_ENV !== "test") {
+    app.use(requestLogger);
+  }
   app.use(express.static("public"));
 
   app.get("/health", (_request, response) => {

@@ -13,21 +13,27 @@ This folder contains QA artifacts created for the FoodHub Takeaway SaaS test str
 - `ai-failure-analysis-prompt.txt`
   Prompt you can paste into ChatGPT or an internal AI tool to analyze flaky test patterns.
 
+- `ai-test-generation-prompt.txt`
+  Prompt you can paste into ChatGPT or an internal AI tool to regenerate FoodHub-specific edge-case and coverage suggestions.
+
 - `test-report.html`
-  Interactive Unit, Integration, and E2E test report with expandable test details plus failure bar and pie charts.
+  Interactive QA dashboard with Unit, Integration, Contract, E2E, and Load test evidence.
+
+- `coverage/`
+  Vitest HTML and JSON summary for the 90%+ critical logic coverage gate.
 
 ## Excel Workbook
 
 Open `FoodHub-AI-Test-Coverage.xlsx` in Excel. It contains these sheets:
 
 - `AI Edge Cases`
-  AI-generated edge cases for the food ordering API.
+  AI-generated edge cases for the food ordering API, payment flow, Pact contracts, Testcontainers persistence, k6 load testing, and report evidence.
 
 - `Coverage Expansion`
-  Missing scenarios suggested by AI, including duplicate items, large orders, and invalid payload shapes.
+  Missing scenarios suggested by AI, including duplicate items, large orders, invalid payload shapes, consumer/provider contracts, real DB persistence, and load-test hit accounting.
 
 - `Generated Test Data`
-  Test data ideas and builders, including randomized order inputs and boundary values.
+  Test data ideas and builders, including randomized order inputs, boundary values, E2E card fixtures, persisted orders, and k6 hit-count accounting.
 
 - `Failure Analysis`
   Process steps for using logs with AI to identify flaky patterns.
@@ -54,11 +60,13 @@ qa-artifacts/test-report.html
 
 The report includes:
 
-- left-side navigation for Unit, Integration, and E2E tests
-- expandable test details for each test case
-- total passed, failed, and skipped counts
-- failure bar chart by test level
-- failure pie chart by test level
+- Dashboard section with total checks, passed, failed, duration, execution coverage, and status mix
+- 90%+ critical logic coverage gate results for lines, statements, functions, and branches
+- section-level views for Unit, Integration, Contract, E2E, and Load tests
+- Testcontainers PostgreSQL evidence under Integration tests
+- Pact contract evidence under Contract tests
+- k6 thresholds, configured VUs, endpoint hit counts, and total API requests under Load tests
+- Visual regression evidence from Playwright screenshot snapshots for menu visible, cart ready, and gateway ready states.
 
 ## Feeding Logs To AI
 
@@ -91,9 +99,15 @@ Use this flow when a test fails or behaves inconsistently.
    qa-artifacts/ai-failure-analysis-prompt.txt
    ```
 
-5. Paste the full prompt into ChatGPT or your internal AI tool.
+5. For test generation and coverage expansion, open:
 
-6. Ask AI to identify:
+   ```text
+   qa-artifacts/ai-test-generation-prompt.txt
+   ```
+
+6. Paste the full prompt into ChatGPT or your internal AI tool.
+
+7. Ask AI to identify:
 
    - flaky patterns
    - likely root cause
@@ -124,5 +138,8 @@ The analyzer scans logs for common flaky-test signals:
 - network or port failures
 - payment gateway redirect issues
 - retry-only pass patterns
+- Pact verifier or contract mismatch issues
+- Docker/Testcontainers/PostgreSQL startup and persistence issues
+- k6 threshold, VU, endpoint-hit, or load-environment issues
 
 The local analyzer does not replace AI review. It prepares a structured summary and prompt so AI can reason over the log with FoodHub-specific context.

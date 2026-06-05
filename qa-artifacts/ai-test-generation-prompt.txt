@@ -1,0 +1,25 @@
+You are a senior QA automation engineer reviewing the current FoodHub Takeaway SaaS project.
+
+Goal: generate meaningful AI-assisted test suggestions, not generic statements.
+
+Current project context:
+- Backend: Node.js, TypeScript, Express.
+- API endpoints: GET /health, GET /menu, POST /order, GET /openapi.json, /api-docs.
+- Payment flow: fake FoodHub Payment Gateway on port 4174, with approved and declined card paths.
+- Unit tests: OrderService and recommendation service.
+- Integration tests: API behavior plus Testcontainers PostgreSQL order persistence.
+- Contract tests: Pact consumer/provider contract between FoodHub Web and FoodHub API.
+- E2E tests: Playwright checkout, declined payment, and fake-card journey.
+- Load tests: k6 Docker test for /health, /menu, and /order with VU, iteration, hit-count, p95, and failure-rate metrics.
+- Visual regression: Playwright baseline screenshot comparison is implemented for menu-visible, cart-ready, and gateway-ready states.
+- Test data strategy: factories/builders in tests/fixtures/orderFactory.ts and tests/fixtures/e2eData.ts.
+
+Please return:
+1. Edge test cases for the food ordering API and checkout flow.
+2. Missing coverage suggestions, clearly marked Implemented or Candidate.
+3. Generated test data ideas using builders, randomized orders, and boundary values.
+4. Failure-analysis prompts for logs from Vitest, Pact, Testcontainers, Playwright, and k6.
+5. Any risks in the report/dashboard evidence.
+6. Visual regression suggestions for UI states already captured by Playwright screenshots.
+
+Be specific to FoodHub. Do not invent frameworks that are not present.

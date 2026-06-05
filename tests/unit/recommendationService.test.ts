@@ -19,4 +19,20 @@ describe("createAiSuggestion", () => {
       )
     ).toContain("well balanced");
   });
+
+  it("suggests a drink when the order has a main and side but no drink", () => {
+    expect(
+      createAiSuggestion(
+        [
+          { menuItemId: "burger-classic", quantity: 1 },
+          { menuItemId: "fries-loaded", quantity: 1 }
+        ],
+        menu
+      )
+    ).toContain("Fresh Lemonade");
+  });
+
+  it("suggests a main when the order only has sides or drinks", () => {
+    expect(createAiSuggestion([{ menuItemId: "cola-zero", quantity: 1 }], menu)).toContain("Veggie Halloumi Wrap");
+  });
 });

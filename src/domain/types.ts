@@ -39,3 +39,7 @@ export type PaymentResult =
 export type PaymentGateway = {
   charge(amount: number, paymentToken: string): Promise<PaymentResult>;
 };
+
+export type OrderRepository = {
+  save(receipt: OrderReceipt): Promise<void>;
+};
