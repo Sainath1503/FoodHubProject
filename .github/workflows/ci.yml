@@ -36,7 +36,7 @@ jobs:
         run: npm ci
 
       - name: Build TypeScript
-        run: npm run build
+        run: npm run build:ci
 
       - name: Run unit tests
         run: npm run test:unit
@@ -59,7 +59,7 @@ jobs:
         run: npm ci
 
       - name: Build TypeScript
-        run: npm run build
+        run: npm run build:ci
 
       - name: Run integration tests
         run: npm run test:integration
@@ -82,7 +82,7 @@ jobs:
         run: npm ci
 
       - name: Build TypeScript
-        run: npm run build
+        run: npm run build:ci
 
       - name: Run Pact contract tests
         run: npm run test:contract
@@ -105,7 +105,7 @@ jobs:
         run: npm ci
 
       - name: Build TypeScript
-        run: npm run build
+        run: npm run build:ci
 
       - name: Run critical logic coverage gate
         run: npm run test:coverage
@@ -138,7 +138,7 @@ jobs:
         run: npm ci
 
       - name: Build TypeScript
-        run: npm run build
+        run: npm run build:ci
 
       - name: Run E2E tests
         run: npm run test:e2e
@@ -177,7 +177,7 @@ jobs:
         run: npm ci
 
       - name: Build TypeScript
-        run: npm run build
+        run: npm run build:ci
 
       - name: Run k6 PR load test
         run: |
