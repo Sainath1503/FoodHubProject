@@ -17,7 +17,8 @@ const orderSchema = z.object({
     })
   ),
   paymentToken: z.string().min(1),
-  cardId: z.string().optional()
+  cardId: z.string().optional(),
+  customerName: z.string().trim().min(1)
 });
 
 const serviceName = "foodhub-takeaway-saas";

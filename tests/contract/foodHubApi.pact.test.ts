@@ -74,6 +74,7 @@ describe("FoodHub API Pact contract", () => {
             total: 9.5,
             paymentStatus: "paid",
             paymentId: MatchersV3.regex(/^pay_.+$/, "pay_test123"),
+            customerName: MatchersV3.string("FoodHub Demo User"),
             aiSuggestion: MatchersV3.string("Add a side to make this meal feel complete.")
           }
         }

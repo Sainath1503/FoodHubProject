@@ -87,6 +87,7 @@ function createOrder() {
   return {
     paymentToken: `gateway_paid_load_${__VU}_${__ITER}`,
     cardId: "approved-card",
+    customerName: "FoodHub Load Tester",
     items: orderTemplates[Math.floor(Math.random() * orderTemplates.length)]
   };
 }

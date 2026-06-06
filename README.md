@@ -24,10 +24,28 @@ Main risks covered:
 AI is used as a QA accelerator, not just as a label:
 
 - AI-generated edge cases are exported to `qa-artifacts/FoodHub-AI-Test-Coverage.xlsx`.
-- The workbook has separate sheets for `AI Edge Cases`, `Coverage Expansion`, `Generated Test Data`, and `Failure Analysis`.
+- The workbook has separate sheets for `Failure Analysis`, `AI Edge Cases`, `Missing Test Scenarios`, `Coverage Expansion`, and `Test Data Suggestions`.
 - AI-suggested missing scenarios are implemented in integration tests: duplicate items, large orders, invalid payload shapes, and randomized order data.
 - Test builders generate deterministic randomized order inputs and boundary values in `tests/fixtures/orderFactory.ts`.
 - Failure logs can be analyzed with `npm run ai:analyze-failures -- <log-file>`, which creates a local report and an AI-ready prompt.
+
+Live DeepSeek API generation is opt-in. By default `npm run ai:coverage` uses local deterministic fallback rows and does not call an external model.
+
+Local `.env` file:
+
+```env
+FOODHUB_AI_LIVE=true
+DEEPSEEK_API_KEY=<your DeepSeek API key>
+DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
+```
+
+Then run:
+
+```powershell
+npm run ai:coverage
+```
+
+CI/CD can use the same switch by setting `FOODHUB_AI_LIVE=true` and storing `DEEPSEEK_API_KEY` as a secret. Leave `FOODHUB_AI_LIVE` unset or set to `false` to disable real-time API usage.
 
 The checkout also includes an AI-assisted recommendation endpoint. It uses deterministic menu and cart signals to suggest add-ons without calling an external AI provider, keeping tests fast and reliable while still demonstrating meaningful AI-style decision support in the product.
 
@@ -62,6 +80,16 @@ Swagger/OpenAPI documentation is available at:
 
 The HTML test report is generated at `qa-artifacts/test-report.html`.
 The Playwright E2E report is generated at `playwright-report/index.html` and includes UI screenshots attached from the E2E checks.
+
+## Local Observability Dashboard
+
+FoodHub includes a portable local observability flow for QA environments where a central dashboard is not available.
+
+```bash
+npm run observability:refresh
+```
+
+This command collects structured request logs and QA metrics, ingests them into `qa-artifacts/observability/foodhub-observability.sqlite`, and generates `qa-artifacts/FoodHub-Observability-Dashboard.xlsx`. The QA Report Viewer also has controls to refresh the dashboard, open the workbook, and truncate the SQLite observability tables.
 
 ## Test Automation Strategy
 

@@ -27,22 +27,37 @@ This folder contains QA artifacts created for the FoodHub Takeaway SaaS test str
 Open `FoodHub-AI-Test-Coverage.xlsx` in Excel. It contains these sheets:
 
 - `AI Edge Cases`
-  AI-generated edge cases for the food ordering API, payment flow, Pact contracts, Testcontainers persistence, k6 load testing, and report evidence.
+  DeepSeek-backed or fallback edge cases for the food ordering API, payment flow, invoice flow, Pact contracts, Testcontainers persistence, k6 load testing, observability, and report evidence.
+
+- `Missing Test Scenarios`
+  Missing scenarios suggested from requirements/code and marked as Implemented, Partially Implemented, or Candidate.
 
 - `Coverage Expansion`
-  Missing scenarios suggested by AI, including duplicate items, large orders, invalid payload shapes, consumer/provider contracts, real DB persistence, and load-test hit accounting.
+  Coverage expansion ideas, including duplicate items, large orders, invalid payload shapes, consumer/provider contracts, real DB persistence, observability, and load-test hit accounting.
 
-- `Generated Test Data`
-  Test data ideas and builders, including randomized order inputs, boundary values, E2E card fixtures, persisted orders, and k6 hit-count accounting.
+- `Test Data Suggestions`
+  Test data ideas and builders, including randomized order inputs, boundary values, E2E card fixtures, invoice customer data, persisted orders, observability metrics, and k6 hit-count accounting.
 
 - `Failure Analysis`
-  Process steps for using logs with AI to identify flaky patterns.
+  DeepSeek `deepseek-v4-pro` failure-analysis rows when live mode is enabled, or process steps for using logs with AI to identify flaky patterns when live mode is disabled.
+
+- `Run Configuration`
+  Shows whether live DeepSeek API usage was enabled and which model/reasoning mapping was used.
 
 Regenerate the workbook with:
 
 ```bash
 npm run ai:coverage
 ```
+
+Live DeepSeek mode is controlled by environment variables:
+
+```bash
+FOODHUB_AI_LIVE=true
+DEEPSEEK_API_KEY=<your DeepSeek API key>
+```
+
+Leave `FOODHUB_AI_LIVE` unset or set to `false` to use local fallback rows without API calls.
 
 ## Test Report
 

@@ -6,3 +6,8 @@ test-results
 pacts
 qa-artifacts/load-test-summary.json
 .env
+qa-report-viewer/target
+FoodHubQAReportViewer.exe
+FoodHubQAReportViewer.ico
+/app
+/runtime

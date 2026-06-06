@@ -1,25 +1,35 @@
-You are a senior QA automation engineer reviewing the current FoodHub Takeaway SaaS project.
+FoodHub AI Test Coverage Generation
 
-Goal: generate meaningful AI-assisted test suggestions, not generic statements.
+Live DeepSeek API enabled: true
+Flag: FOODHUB_AI_LIVE=true
+API key env var: DEEPSEEK_API_KEY
 
-Current project context:
-- Backend: Node.js, TypeScript, Express.
-- API endpoints: GET /health, GET /menu, POST /order, GET /openapi.json, /api-docs.
-- Payment flow: fake FoodHub Payment Gateway on port 4174, with approved and declined card paths.
-- Unit tests: OrderService and recommendation service.
-- Integration tests: API behavior plus Testcontainers PostgreSQL order persistence.
-- Contract tests: Pact consumer/provider contract between FoodHub Web and FoodHub API.
-- E2E tests: Playwright checkout, declined payment, and fake-card journey.
-- Load tests: k6 Docker test for /health, /menu, and /order with VU, iteration, hit-count, p95, and failure-rate metrics.
-- Visual regression: Playwright baseline screenshot comparison is implemented for menu-visible, cart-ready, and gateway-ready states.
-- Test data strategy: factories/builders in tests/fixtures/orderFactory.ts and tests/fixtures/e2eData.ts.
+## Failure Analysis
+Model: deepseek-v4-pro
+Thinking: enabled
+Reasoning effort: high
+Generate FoodHub failure-analysis rows from the provided logs and project context. Focus on timeout, selector, network, Docker/Testcontainers, Pact, k6, payment gateway, and report-generation signals.
 
-Please return:
-1. Edge test cases for the food ordering API and checkout flow.
-2. Missing coverage suggestions, clearly marked Implemented or Candidate.
-3. Generated test data ideas using builders, randomized orders, and boundary values.
-4. Failure-analysis prompts for logs from Vitest, Pact, Testcontainers, Playwright, and k6.
-5. Any risks in the report/dashboard evidence.
-6. Visual regression suggestions for UI states already captured by Playwright screenshots.
+## AI Edge Cases
+Model: deepseek-v4-flash
+Thinking: enabled
+Reasoning effort: medium
+Generate FoodHub edge-case test rows for new and existing features from requirements/code context. Include API, UI, payment, invoice, observability, contract, persistence, visual, and load risks.
 
-Be specific to FoodHub. Do not invent frameworks that are not present.
+## Missing Test Scenarios
+Model: deepseek-v4-flash
+Thinking: enabled
+Reasoning effort: medium
+Generate FoodHub missing-test-scenario rows. Mark each as Implemented, Partially Implemented, or Candidate based on current project evidence.
+
+## Coverage Expansion
+Model: deepseek-v4-flash
+Thinking: enabled
+Reasoning effort: medium
+Generate FoodHub coverage-expansion rows. Focus on high-value additions across unit, integration, contract, E2E, visual, load, observability, and CI evidence.
+
+## Test Data Suggestions
+Model: deepseek-v4-flash
+Thinking: enabled
+Reasoning effort: medium
+Generate FoodHub test-data suggestion rows for order, payment, customer, invoice, observability, load, and persistence test data.

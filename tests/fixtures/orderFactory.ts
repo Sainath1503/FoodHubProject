@@ -5,6 +5,7 @@ export function createOrder(items: OrderLine[] = [{ menuItemId: "burger-classic"
   return {
     paymentToken: "gateway_paid_test123",
     cardId: "approved-card",
+    customerName: "FoodHub Demo User",
     items
   };
 }

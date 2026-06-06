@@ -75,6 +75,7 @@ describe("FoodHub API", () => {
         total: 14.75,
         paymentStatus: "paid",
         paymentId: expect.stringMatching(/^pay_/),
+        customerName: "FoodHub Demo User",
         aiSuggestion: expect.any(String)
       })
     );

@@ -12,7 +12,7 @@ async function attachScreenshot(page: Page, name: string) {
   });
 }
 
-test("customer can view menu, pay through the gateway, and receive an AI suggestion", async ({ page }) => {
+test("customer can view menu, pay through the gateway, and open the invoice", async ({ page }) => {
   const checkout = createApprovedCheckout();
 
   await page.goto("/");
@@ -49,7 +49,13 @@ test("customer can view menu, pay through the gateway, and receive an AI suggest
 
   await expect(page).toHaveURL(/127\.0\.0\.1:4173/);
   await expect(page.locator("#message")).toContainText(`paid ${checkout.cartTotal}`);
-  await expect(page.locator("#message")).toContainText("AI pick");
+  await expect(page.locator("#message")).toContainText(checkout.customerName);
+  await expect(page.locator("#message")).not.toContainText("AI pick");
+  await page.getByRole("link", { name: /Open invoice for order/ }).click();
+  await expect(page.getByRole("heading", { name: "Invoice" })).toBeVisible();
+  await expect(page.locator("#invoice-transaction-id")).toContainText(/^pay_/);
+  await expect(page.locator("#invoice-card-last4")).toHaveText("6781");
+  await expect(page.locator("#invoice-customer-name")).toHaveText(checkout.customerName);
   await attachScreenshot(page, "paid-receipt");
 });
 

@@ -25,6 +25,7 @@ export class OrderService {
       total,
       paymentStatus: "paid",
       paymentId: payment.paymentId,
+      customerName: request.customerName,
       aiSuggestion: createAiSuggestion(request.items, this.menu)
     };
 

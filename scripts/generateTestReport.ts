@@ -35,6 +35,7 @@ const outputDir = path.resolve("qa-artifacts");
 const loadSummaryPath = path.join(outputDir, "load-test-summary.json");
 const coverageSummaryPath = path.join(outputDir, "coverage", "coverage-summary.json");
 const outputPath = path.join(outputDir, "test-report.html");
+const selectedType = readSelectedType();
 
 const tests: TestCase[] = [
   test("UNIT-001", "Unit", "tests/unit/orderService.test.ts", "OrderService calculates totals and calls payment with the exact total", 14, "Validates total calculation for multiple order lines and verifies the payment gateway charge amount."),
@@ -70,6 +71,7 @@ const tests: TestCase[] = [
   test("VIS-003", "E2E", "tests/e2e/order-flow.spec.ts", "Payment gateway page matches the visual baseline", 220, "Playwright compares the current gateway-ready screenshot against tests/e2e/order-flow.spec.ts-snapshots/gateway-ready-chromium-win32.png.")
 ];
 
+let reportTests = selectedType ? tests.filter((item) => item.type === selectedType) : tests;
 const loadMetrics = readLoadMetrics();
 const coverageMetrics = readCoverageMetrics();
 const addOns = [
@@ -88,7 +90,8 @@ const addOns = [
       "Playwright compares baseline snapshots for menu-visible, cart-ready, and gateway-ready UI states during E2E execution."
   }
 ];
-tests.push(...loadMetrics.map((metric, index) => ({
+if (!selectedType || selectedType === "Load") {
+  reportTests.push(...loadMetrics.map((metric, index) => ({
   id: `LOAD-${String(index + 1).padStart(3, "0")}`,
   type: "Load" as const,
   file: "tests/load/foodhub-api.k6.js",
@@ -96,16 +99,17 @@ tests.push(...loadMetrics.map((metric, index) => ({
   status: metric.status,
   durationMs: 10_000,
   details: `k6 measured ${metric.value}${metric.unit} against threshold ${metric.threshold}${metric.unit}.`
-})));
+  })));
+}
 
-const testTypes: TestType[] = ["Unit", "Integration", "Contract", "E2E", "Load"];
+const testTypes: TestType[] = selectedType ? [selectedType] : ["Unit", "Integration", "Contract", "E2E", "Load"];
 const statusCounts = {
-  passed: tests.filter((item) => item.status === "Passed").length,
-  failed: tests.filter((item) => item.status === "Failed").length,
-  skipped: tests.filter((item) => item.status === "Skipped").length
+  passed: reportTests.filter((item) => item.status === "Passed").length,
+  failed: reportTests.filter((item) => item.status === "Failed").length,
+  skipped: reportTests.filter((item) => item.status === "Skipped").length
 };
 const byType = testTypes.map((type) => {
-  const typeTests = tests.filter((item) => item.type === type);
+  const typeTests = reportTests.filter((item) => item.type === type);
   return {
     type,
     total: typeTests.length,
@@ -121,6 +125,20 @@ console.log(`Created ${outputPath}`);
 
 function test(id: string, type: TestType, file: string, name: string, durationMs: number, details: string): TestCase {
   return { id, type, file, name, status: "Passed", durationMs, details };
+}
+
+function readSelectedType(): TestType | undefined {
+  const typeArg = process.argv.find((arg) => arg.startsWith("--type="));
+  if (!typeArg) {
+    return undefined;
+  }
+
+  const value = typeArg.replace("--type=", "");
+  if (["Unit", "Integration", "Contract", "E2E", "Load"].includes(value)) {
+    return value as TestType;
+  }
+
+  throw new Error(`Unsupported report type: ${value}`);
 }
 
 function readLoadMetrics(): LoadMetric[] {
@@ -192,8 +210,9 @@ function metric(label: string, value: number, threshold: number, unit: string, c
 }
 
 function renderHtml() {
-  const report = JSON.stringify({ generatedAt, tests, byType, statusCounts, loadMetrics, coverageMetrics, addOns });
-  const totalDuration = tests.reduce((sum, item) => sum + item.durationMs, 0);
+  const reportScope = selectedType ? `${selectedType} Tests` : "All Tests";
+  const report = JSON.stringify({ generatedAt, tests: reportTests, byType, statusCounts, loadMetrics, coverageMetrics, addOns });
+  const totalDuration = reportTests.reduce((sum, item) => sum + item.durationMs, 0);
 
   return `<!doctype html>
 <html lang="en">
@@ -267,7 +286,7 @@ function renderHtml() {
         <section class="top">
           <div>
             <h2 id="section-title">Dashboard</h2>
-            <p class="muted">Generated at ${generatedAt}. Includes functional, contract, E2E, coverage, and k6 load-test evidence.</p>
+          <p class="muted">Generated at ${generatedAt}. Scope: ${reportScope}.</p>
           </div>
           <span class="badge ${statusCounts.failed === 0 ? "passed" : "failed"}">${statusCounts.failed} failures</span>
         </section>
@@ -325,7 +344,7 @@ function renderHtml() {
         addonPanel.hidden = false;
         loadCharts.hidden = true;
         summaryCards.innerHTML = \`
-          <div class="metric"><span>Total Checks</span><strong>${tests.length}</strong></div>
+          <div class="metric"><span>Total Checks</span><strong>${reportTests.length}</strong></div>
           <div class="metric"><span>Passed</span><strong>${statusCounts.passed}</strong></div>
           <div class="metric"><span>Failed</span><strong>${statusCounts.failed}</strong></div>
           <div class="metric"><span>Total Duration</span><strong>${Math.round(totalDuration / 1000)}s</strong></div>

@@ -28,6 +28,8 @@
           <span>Total</span>
           <strong id="cart-total">$0.00</strong>
         </div>
+        <label for="customer-name">Customer name</label>
+        <input id="customer-name" autocomplete="name" placeholder="FoodHub Demo User" />
         <label for="payment-card">Payment card</label>
         <select id="payment-card">
           <option value="approved-card">xxxx-xxxx-xxxx-6781 (Approved)</option>
@@ -43,6 +45,37 @@
         </form>
         <button id="checkout-button" type="button">Pay and create order</button>
         <div id="message" class="message" role="status"></div>
+        <div id="invoice-link-panel" class="invoice-link-panel" hidden>
+          <label>Invoice link</label>
+          <div class="invoice-link-box">
+            <a id="invoice-link" href="#">Open invoice for last transaction</a>
+          </div>
+        </div>
+        <section id="invoice-preview" class="invoice-preview" aria-labelledby="invoice-heading" hidden>
+          <h3 id="invoice-heading">Invoice</h3>
+          <dl>
+            <div>
+              <dt>Transaction ID</dt>
+              <dd id="invoice-transaction-id"></dd>
+            </div>
+            <div>
+              <dt>Order ID</dt>
+              <dd id="invoice-order-id"></dd>
+            </div>
+            <div>
+              <dt>Paid via</dt>
+              <dd id="invoice-paid-via"></dd>
+            </div>
+            <div>
+              <dt>Card last 4</dt>
+              <dd id="invoice-card-last4"></dd>
+            </div>
+            <div>
+              <dt>Customer name</dt>
+              <dd id="invoice-customer-name"></dd>
+            </div>
+          </dl>
+        </section>
       </aside>
     </main>
 

@@ -258,7 +258,15 @@ jobs:
       - name: Generate QA test report
         run: npm run test:report
 
+      - name: Generate AI coverage workbook
+        if: ${{ vars.FOODHUB_AI_LIVE == 'true' }}
+        run: npm run ai:coverage
+        env:
+          FOODHUB_AI_LIVE: ${{ vars.FOODHUB_AI_LIVE }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+
       - name: Generate AI failure analysis prompt
+        if: ${{ vars.FOODHUB_AI_LIVE != 'true' }}
         run: npm run ai:analyze-failures -- tests/fixtures/failureLogs/sample-flaky-log.txt
 
       - name: Upload QA test artifacts
