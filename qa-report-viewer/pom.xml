@@ -7,7 +7,7 @@
   <groupId>com.foodhub.tools</groupId>
   <artifactId>qa-report-viewer</artifactId>
   <version>1.0.0</version>
-  <name>FoodHub QA Report Viewer</name>
+  <name>FoodHub Automation Console</name>
 
   <properties>
     <maven.compiler.release>17</maven.compiler.release>

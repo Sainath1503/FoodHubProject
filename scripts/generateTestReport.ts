@@ -1,8 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 type TestStatus = "Passed" | "Failed" | "Skipped";
 type TestType = "Unit" | "Integration" | "Contract" | "E2E" | "Load";
+type CiCheck = TestType | "Coverage";
+
+type CiStatus = {
+  check: CiCheck;
+  label: string;
+  status: "passed" | "failed" | "skipped";
+  reason: string;
+};
 
 type TestCase = {
   id: string;
@@ -34,8 +42,10 @@ const generatedAt = new Date().toISOString();
 const outputDir = path.resolve("qa-artifacts");
 const loadSummaryPath = path.join(outputDir, "load-test-summary.json");
 const coverageSummaryPath = path.join(outputDir, "coverage", "coverage-summary.json");
+const ciStatusDir = path.join(outputDir, "ci-status");
 const outputPath = path.join(outputDir, "test-report.html");
 const selectedType = readSelectedType();
+const ciStatuses = selectedType ? new Map<CiCheck, CiStatus>() : readCiStatuses();
 
 const tests: TestCase[] = [
   test("UNIT-001", "Unit", "tests/unit/orderService.test.ts", "OrderService calculates totals and calls payment with the exact total", 14, "Validates total calculation for multiple order lines and verifies the payment gateway charge amount."),
@@ -72,12 +82,13 @@ const tests: TestCase[] = [
 ];
 
 let reportTests = selectedType ? tests.filter((item) => item.type === selectedType) : tests;
+reportTests = applyCiStatusToTests(reportTests);
 const loadMetrics = readLoadMetrics();
 const coverageMetrics = readCoverageMetrics();
 const addOns = [
   {
     name: "Critical Logic Coverage",
-    status: coverageMetrics.every((metric) => metric.status === "Passed") ? "Passed" : "Failed",
+    status: coverageStatus(),
     details:
       coverageMetrics.length > 0
         ? coverageMetrics.map((metric) => `${metric.label}: ${metric.value}%`).join(", ")
@@ -141,11 +152,117 @@ function readSelectedType(): TestType | undefined {
   throw new Error(`Unsupported report type: ${value}`);
 }
 
+function readCiStatuses(): Map<CiCheck, CiStatus> {
+  const statuses = new Map<CiCheck, CiStatus>();
+  if (!existsSync(ciStatusDir)) {
+    return statuses;
+  }
+
+  for (const file of readDirectoryJsonFiles(ciStatusDir)) {
+    try {
+      const item = JSON.parse(readFileSync(file, "utf8").replace(/^\uFEFF/, "")) as Partial<CiStatus>;
+      if (isCiCheck(item.check) && isCiStatusValue(item.status)) {
+        statuses.set(item.check, {
+          check: item.check,
+          label: String(item.label ?? item.check),
+          status: item.status,
+          reason: String(item.reason ?? "")
+        });
+      }
+    } catch {
+      // Ignore malformed CI status files; the report will fall back to default behavior.
+    }
+  }
+
+  const firstFailed = [...statuses.values()].find((item) => item.status === "failed");
+  if (firstFailed) {
+    for (const check of expectedCiChecks()) {
+      if (!statuses.has(check)) {
+        statuses.set(check, {
+          check,
+          label: `${check} tests`,
+          status: "skipped",
+          reason: `Skipped due to fail-fast after ${firstFailed.label} failed.`
+        });
+      }
+    }
+  }
+
+  return statuses;
+}
+
+function readDirectoryJsonFiles(directory: string): string[] {
+  return existsSync(directory)
+    ? readdirSync(directory)
+      .filter((file) => file.endsWith(".json"))
+      .map((file) => path.join(directory, file))
+    : [];
+}
+
+function expectedCiChecks(): CiCheck[] {
+  return ["Unit", "Integration", "Contract", "Coverage", "E2E", "Load"];
+}
+
+function isCiCheck(value: unknown): value is CiCheck {
+  return typeof value === "string" && expectedCiChecks().includes(value as CiCheck);
+}
+
+function isCiStatusValue(value: unknown): value is CiStatus["status"] {
+  return value === "passed" || value === "failed" || value === "skipped";
+}
+
+function applyCiStatusToTests(items: TestCase[]): TestCase[] {
+  return items.map((item) => {
+    const ciStatus = ciStatuses.get(item.type);
+    if (!ciStatus || ciStatus.status === "passed") {
+      return item;
+    }
+
+    const status: TestStatus = ciStatus.status === "failed" ? "Failed" : "Skipped";
+    const reason = ciStatus.reason || `${ciStatus.label} ${ciStatus.status}.`;
+    return {
+      ...item,
+      status,
+      details: `${reason} ${item.details}`
+    };
+  });
+}
+
+function coverageStatus(): TestStatus {
+  const ciStatus = ciStatuses.get("Coverage");
+  if (ciStatus?.status === "skipped") {
+    return "Skipped";
+  }
+  if (ciStatus?.status === "failed") {
+    return "Failed";
+  }
+  if (!coverageMetrics.length) {
+    return "Skipped";
+  }
+
+  return coverageMetrics.every((metric) => metric.status === "Passed") ? "Passed" : "Failed";
+}
+
 function readLoadMetrics(): LoadMetric[] {
-  if (!existsSync(loadSummaryPath)) {
+  const ciStatus = ciStatuses.get("Load");
+  if (ciStatus?.status === "skipped") {
     return [
-      { label: "k6 load summary available", value: 0, threshold: 1, unit: "", status: "Skipped" },
-      { label: "Run npm run test:load:docker:smoke to populate load metrics", value: 0, threshold: 1, unit: "", status: "Skipped" }
+      { label: "Load tests skipped", value: 0, threshold: 1, unit: "", status: "Skipped", chart: false },
+      { label: ciStatus.reason, value: 0, threshold: 1, unit: "", status: "Skipped", chart: false }
+    ];
+  }
+
+  if (!existsSync(loadSummaryPath)) {
+    if (ciStatus?.status === "failed") {
+      return [
+        { label: "Load tests failed before summary was produced", value: 1, threshold: 0, unit: "", status: "Failed", chart: false },
+        { label: ciStatus.reason || "Load job failed.", value: 1, threshold: 0, unit: "", status: "Failed", chart: false }
+      ];
+    }
+
+    return [
+      { label: "k6 load summary available", value: 0, threshold: 1, unit: "", status: "Skipped", chart: false },
+      { label: "Run npm run test:load:docker:smoke to populate load metrics", value: 0, threshold: 1, unit: "", status: "Skipped", chart: false }
     ];
   }
 
@@ -174,7 +291,26 @@ function readLoadMetrics(): LoadMetric[] {
 }
 
 function readCoverageMetrics(): CoverageMetric[] {
+  const ciStatus = ciStatuses.get("Coverage");
+  if (ciStatus?.status === "skipped") {
+    return [
+      coverageMetric("Lines", 0, "Skipped"),
+      coverageMetric("Statements", 0, "Skipped"),
+      coverageMetric("Functions", 0, "Skipped"),
+      coverageMetric("Branches", 0, "Skipped")
+    ];
+  }
+
   if (!existsSync(coverageSummaryPath)) {
+    if (ciStatus?.status === "failed") {
+      return [
+        coverageMetric("Lines", 0, "Failed"),
+        coverageMetric("Statements", 0, "Failed"),
+        coverageMetric("Functions", 0, "Failed"),
+        coverageMetric("Branches", 0, "Failed")
+      ];
+    }
+
     return [];
   }
 
@@ -188,13 +324,13 @@ function readCoverageMetrics(): CoverageMetric[] {
   ];
 }
 
-function coverageMetric(label: string, value: number): CoverageMetric {
+function coverageMetric(label: string, value: number, forcedStatus?: TestStatus): CoverageMetric {
   const roundedValue = Number(value.toFixed(2));
   return {
     label,
     value: roundedValue,
     threshold: 90,
-    status: roundedValue >= 90 ? "Passed" : "Failed"
+    status: forcedStatus ?? (roundedValue >= 90 ? "Passed" : "Failed")
   };
 }
 

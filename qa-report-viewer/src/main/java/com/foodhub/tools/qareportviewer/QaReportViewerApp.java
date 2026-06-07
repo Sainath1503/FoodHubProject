@@ -16,6 +16,7 @@ import java.net.URL;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,6 +29,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
@@ -53,9 +55,13 @@ public class QaReportViewerApp extends Application {
   private final TextArea servicesArea = new TextArea();
   private final Label statusLabel = new Label("Select an artifact to view.");
   private final ComboBox<TestCommand> testSelector = new ComboBox<>();
+  private final ComboBox<DocumentItem> documentSelector = new ComboBox<>();
+  private final CheckBox liveAiToggle = new CheckBox("Live AI (DeepSeek)");
   private Path repositoryRoot;
   private Process foodHubServiceProcess;
   private Process swaggerServiceProcess;
+  private volatile Process activeCommandProcess;
+  private volatile boolean stopRequested;
   private final AtomicBoolean testRunning = new AtomicBoolean(false);
 
   @Override
@@ -68,10 +74,13 @@ public class QaReportViewerApp extends Application {
     testSelector.getItems().addAll(testCommands());
     testSelector.getSelectionModel().selectFirst();
     testSelector.setMaxWidth(Double.MAX_VALUE);
+    documentSelector.setMaxWidth(Double.MAX_VALUE);
+    configureLiveAiToggle();
 
     TabPane tabs = new TabPane(
         tab("Observability and Reporting", createObservabilityReportingTab()),
-        tab("Services and Test runner", createServicesTestRunnerTab()));
+        tab("Services and Test runner", createServicesTestRunnerTab()),
+        tab("Framework Documents", createFrameworkDocumentsTab()));
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
     BorderPane root = new BorderPane();
@@ -83,7 +92,7 @@ public class QaReportViewerApp extends Application {
 
     Scene scene = new Scene(root, 1080, 680);
     stylesheet().ifPresent(css -> scene.getStylesheets().add(css));
-    stage.setTitle("FoodHub QA Report Viewer");
+    stage.setTitle("FoodHub Automation Console");
     loadImage("foodhub-icon.png").ifPresent(icon -> stage.getIcons().add(icon));
     stage.setScene(scene);
     stage.setMinWidth(880);
@@ -103,7 +112,7 @@ public class QaReportViewerApp extends Application {
     logo.setPreserveRatio(true);
     logo.getStyleClass().add("brand-logo");
 
-    Label title = new Label("QA Report Viewer");
+    Label title = new Label("Automation Console");
     title.getStyleClass().add("header-title");
     Label repository = new Label("Repository: " + repositoryRoot);
     repository.getStyleClass().add("header-subtitle");
@@ -123,13 +132,14 @@ public class QaReportViewerApp extends Application {
         textButton("View AI Failure Prompt", "qa-artifacts/ai-failure-analysis-prompt.txt", reportingArea),
         textButton("View AI Test Generation Prompt", "qa-artifacts/ai-test-generation-prompt.txt", reportingArea),
         textButton("View Failure Analysis Report", "qa-artifacts/failure-analysis-report.md", reportingArea),
+        browserButton("Open FoodHub AI Test Analysis Report", "qa-artifacts/FoodHub-AI-Test-Analysis.xlsx", reportingArea),
         browserButton("Open Playwright Report", "playwright-report/index.html", reportingArea),
         textButton("View AI Test Suggestions", "qa-artifacts/ai-test-suggestions.md", reportingArea),
         browserButton("Open Coverage Report", "qa-artifacts/coverage/index.html", reportingArea),
         sectionLabel("Observability"),
         actionButton("Refresh Observability Dashboard", () -> runUtilityCommand("Observability refresh", npm("run", "observability:refresh"), reportingArea)),
         browserButton("Open Observability Dashboard", "qa-artifacts/FoodHub-Observability-Dashboard.xlsx", reportingArea),
-        actionButton("Truncate Observability DB", this::confirmAndTruncateObservabilityDb));
+        actionButton("Reset Firebase Observability Logs", this::confirmAndResetFirebaseObservabilityLogs));
 
     return createTabContent(buttons, reportingArea);
   }
@@ -142,11 +152,27 @@ public class QaReportViewerApp extends Application {
         actionButton("Start Swagger Service", this::startSwaggerService),
         actionButton("Stop Swagger Service", () -> stopManagedProcess("Swagger service", false)),
         actionButton("Show Launch URLs", this::showLaunchUrls),
+        sectionLabel("AI Configuration"),
+        liveAiToggle,
         sectionLabel("Test Runner"),
         testSelector,
-        actionButton("Run Selected Test", this::runSelectedTest));
+        testRunnerButtons());
 
     return createTabContent(buttons, servicesArea);
+  }
+
+  private BorderPane createFrameworkDocumentsTab() {
+    TextArea documentsArea = new TextArea();
+    configureTextArea(documentsArea);
+    refreshFrameworkDocuments(documentsArea);
+
+    VBox buttons = new VBox(10,
+        sectionLabel("Framework Documents"),
+        documentSelector,
+        actionButton("Open Selected Document", () -> openSelectedDocument(documentsArea)),
+        actionButton("Refresh Document List", () -> refreshFrameworkDocuments(documentsArea)));
+
+    return createTabContent(buttons, documentsArea);
   }
 
   private BorderPane createTabContent(VBox buttons, TextArea outputArea) {
@@ -155,6 +181,10 @@ public class QaReportViewerApp extends Application {
     buttons.getChildren().forEach(node -> {
       if (node instanceof Button button) {
         button.setMaxWidth(Double.MAX_VALUE);
+      } else if (node instanceof CheckBox checkBox) {
+        checkBox.setMaxWidth(Double.MAX_VALUE);
+      } else if (node instanceof ComboBox<?> comboBox) {
+        comboBox.setMaxWidth(Double.MAX_VALUE);
       }
     });
 
@@ -196,10 +226,157 @@ public class QaReportViewerApp extends Application {
     return button;
   }
 
+  private HBox testRunnerButtons() {
+    Button runButton = actionButton("Run Selected Test", this::runSelectedTest);
+    Button stopButton = actionButton("Stop", this::stopCurrentExecution);
+    HBox controls = new HBox(8, runButton, stopButton);
+    controls.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(runButton, Priority.ALWAYS);
+    HBox.setHgrow(stopButton, Priority.ALWAYS);
+    runButton.setMaxWidth(Double.MAX_VALUE);
+    stopButton.setMaxWidth(Double.MAX_VALUE);
+    return controls;
+  }
+
   private Label sectionLabel(String text) {
     Label label = new Label(text);
     label.getStyleClass().add("section-label");
     return label;
+  }
+
+  private void configureLiveAiToggle() {
+    liveAiToggle.setSelected(readLiveAiFlag());
+    liveAiToggle.setOnAction(_event -> updateLiveAiFlag(liveAiToggle.isSelected()));
+  }
+
+  private boolean readLiveAiFlag() {
+    Optional<Boolean> envValue = readEnvFlag(repositoryRoot.resolve(".env"), "FOODHUB_AI_LIVE");
+    if (envValue.isPresent()) {
+      return envValue.get();
+    }
+
+    return readEnvFlag(repositoryRoot.resolve(".env.example"), "FOODHUB_AI_LIVE").orElse(false);
+  }
+
+  private Optional<Boolean> readEnvFlag(Path file, String key) {
+    if (!Files.exists(file)) {
+      return Optional.empty();
+    }
+
+    try {
+      for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+        String trimmed = line.trim();
+        if (trimmed.isBlank() || trimmed.startsWith("#") || !trimmed.contains("=")) {
+          continue;
+        }
+
+        int separatorIndex = trimmed.indexOf("=");
+        String name = trimmed.substring(0, separatorIndex).trim();
+        String value = trimmed.substring(separatorIndex + 1).trim().replaceAll("^['\"]|['\"]$", "");
+        if (key.equals(name)) {
+          return Optional.of(List.of("1", "true", "yes", "on").contains(value.toLowerCase()));
+        }
+      }
+    } catch (IOException error) {
+      appendLine(servicesArea, "Unable to read " + file + ": " + error.getMessage());
+    }
+
+    return Optional.empty();
+  }
+
+  private void updateLiveAiFlag(boolean enabled) {
+    appendLine(servicesArea, "Setting FOODHUB_AI_LIVE=" + enabled + ".");
+    runUtilityCommand("Live AI configuration", npm("run", "ai:live", "--", String.valueOf(enabled)), servicesArea);
+  }
+
+  private void stopCurrentExecution() {
+    Process process = activeCommandProcess;
+    if (!testRunning.get() || process == null || !isAlive(process)) {
+      appendLine(servicesArea, "No active test or utility command is running.");
+      statusLabel.setText("No active command is running.");
+      return;
+    }
+
+    stopRequested = true;
+    appendLine(servicesArea, "Stop requested. Releasing active command resources.");
+    statusLabel.setText("Stopping active command...");
+    Thread stopper = new Thread(() -> stopProcess(process), "foodhub-command-stop");
+    stopper.setDaemon(true);
+    stopper.start();
+  }
+
+  private void refreshFrameworkDocuments(TextArea outputArea) {
+    Path documentsDir = repositoryRoot.resolve("Framework Documents").normalize();
+    documentSelector.getItems().clear();
+
+    if (!Files.isDirectory(documentsDir)) {
+      outputArea.setText("Framework Documents folder was not found:\n" + documentsDir
+          + "\n\nRun npm run docs:framework to generate the Word documents.");
+      statusLabel.setText("Framework Documents folder not found.");
+      return;
+    }
+
+    try {
+      List<DocumentItem> documents = new ArrayList<>();
+      try (var paths = Files.list(documentsDir)) {
+        paths
+            .filter(Files::isRegularFile)
+            .filter(this::isSupportedDocument)
+            .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase()))
+            .forEach(path -> documents.add(new DocumentItem(path.getFileName().toString(), path)));
+      }
+
+      documentSelector.getItems().addAll(documents);
+      if (!documents.isEmpty()) {
+        documentSelector.getSelectionModel().selectFirst();
+      }
+
+      List<String> lines = new ArrayList<>();
+      lines.add("Framework Documents");
+      lines.add("Folder: " + documentsDir);
+      lines.add("");
+      lines.add(documents.isEmpty()
+              ? "No framework documents were found."
+          : "Select a document from the dropdown and click Open Selected Document.");
+      lines.add("");
+      lines.addAll(documentNames(documents));
+      outputArea.setText(String.join(System.lineSeparator(), lines));
+      outputArea.positionCaret(0);
+      statusLabel.setText("Loaded " + documents.size() + " framework document(s).");
+    } catch (IOException error) {
+      showError("Unable to list framework documents", error.getMessage());
+    }
+  }
+
+  private List<String> documentNames(List<DocumentItem> documents) {
+    return documents.stream().map(document -> "- " + document.name()).toList();
+  }
+
+  private boolean isSupportedDocument(Path path) {
+    String name = path.getFileName().toString().toLowerCase();
+    if ("15 framework architecture diagrams.docx".equals(name)) {
+      return false;
+    }
+
+    return name.endsWith(".docx") || name.endsWith(".doc") || name.endsWith(".pdf")
+        || name.endsWith(".rtf") || name.endsWith(".html") || name.endsWith(".htm");
+  }
+
+  private void openSelectedDocument(TextArea outputArea) {
+    DocumentItem selected = documentSelector.getValue();
+    if (selected == null) {
+      outputArea.setText("Select a framework document first.");
+      statusLabel.setText("Select a framework document first.");
+      return;
+    }
+
+    try {
+      Desktop.getDesktop().open(selected.path().toFile());
+      outputArea.setText("Opened document:\n" + selected.path());
+      statusLabel.setText("Opened: " + selected.name());
+    } catch (IOException | UnsupportedOperationException error) {
+      showError("Unable to open document", error.getMessage());
+    }
   }
 
   private void startFoodHubService() {
@@ -268,12 +445,19 @@ public class QaReportViewerApp extends Application {
     }
 
     ProcessHandle processHandle = process.toHandle();
+    if (process.isAlive()) {
+      process.destroy();
+    }
     processHandle.descendants().forEach(child -> {
       if (child.isAlive()) {
         child.destroy();
       }
     });
-    process.destroy();
+    try {
+      Thread.sleep(1_500);
+    } catch (InterruptedException error) {
+      Thread.currentThread().interrupt();
+    }
     processHandle.descendants().forEach(child -> {
       if (child.isAlive()) {
         child.destroyForcibly();
@@ -324,6 +508,7 @@ public class QaReportViewerApp extends Application {
       return;
     }
 
+    stopRequested = false;
     servicesArea.clear();
     appendLine(servicesArea, "Running: " + selected.label());
     selected.commands().forEach(command -> appendLine(servicesArea, "Queued: " + String.join(" ", command)));
@@ -336,17 +521,26 @@ public class QaReportViewerApp extends Application {
         if (selected.requiresFoodHubService() && !isAlive(foodHubServiceProcess) && !isAlive(swaggerServiceProcess)) {
           appendLine(servicesArea, "Starting FoodHub service for " + selected.label() + ".");
           testServiceProcess = newProcess(List.of("npm", "run", "dev")).start();
+          activeCommandProcess = testServiceProcess;
           readProcessOutput("FoodHub test service", testServiceProcess, servicesArea);
           waitForService(APP_URL + "/health");
+          activeCommandProcess = null;
           appendLine(servicesArea, "FoodHub service is ready for " + selected.label() + ".");
         }
 
         try {
           for (List<String> command : selected.commands()) {
+            if (stopRequested) {
+              appendLine(servicesArea, "Skipping remaining queued commands because stop was requested.");
+              finalExitCode = -1;
+              break;
+            }
             appendLine(servicesArea, "Executing: " + String.join(" ", command));
             Process process = newProcess(command).start();
+            activeCommandProcess = process;
             readProcessOutput(selected.label(), process, servicesArea);
             int exitCode = process.waitFor();
+            activeCommandProcess = null;
             appendLine(servicesArea, "Finished with exit code " + exitCode + ": " + String.join(" ", command));
             if (exitCode != 0) {
               finalExitCode = exitCode;
@@ -367,6 +561,8 @@ public class QaReportViewerApp extends Application {
         finalExitCode = -1;
       } finally {
         int statusExitCode = finalExitCode;
+        activeCommandProcess = null;
+        stopRequested = false;
         testRunning.set(false);
         Platform.runLater(() -> statusLabel.setText(
             statusExitCode == 0 ? "Test command passed: " + selected.label()
@@ -383,6 +579,7 @@ public class QaReportViewerApp extends Application {
       return;
     }
 
+    stopRequested = false;
     outputArea.clear();
     appendLine(outputArea, "Executing: " + String.join(" ", command));
     statusLabel.setText("Running: " + label);
@@ -391,8 +588,10 @@ public class QaReportViewerApp extends Application {
       int exitCode = -1;
       try {
         Process process = newProcess(command).start();
+        activeCommandProcess = process;
         readProcessOutput(label, process, outputArea);
         exitCode = process.waitFor();
+        activeCommandProcess = null;
         appendLine(outputArea, "Finished with exit code " + exitCode + ": " + String.join(" ", command));
       } catch (IOException error) {
         appendLine(outputArea, "Unable to run command: " + error.getMessage());
@@ -401,6 +600,8 @@ public class QaReportViewerApp extends Application {
         appendLine(outputArea, "Command interrupted.");
       } finally {
         int finalExitCode = exitCode;
+        activeCommandProcess = null;
+        stopRequested = false;
         testRunning.set(false);
         Platform.runLater(() -> statusLabel.setText(
             finalExitCode == 0 ? label + " completed." : label + " finished with exit code " + finalExitCode + "."));
@@ -410,15 +611,15 @@ public class QaReportViewerApp extends Application {
     runner.start();
   }
 
-  private void confirmAndTruncateObservabilityDb() {
+  private void confirmAndResetFirebaseObservabilityLogs() {
     Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-    alert.setTitle("Truncate Observability DB");
-    alert.setHeaderText("Clear all local observability history?");
-    alert.setContentText("This deletes rows from the portable SQLite observability tables. It keeps the DB file and schema.");
+    alert.setTitle("Reset Firebase Observability Logs");
+    alert.setHeaderText("Clear all shared dashboard history?");
+    alert.setContentText("This deletes FoodHub observability runs, request logs, and metric records from Firebase Realtime Database.");
 
     Optional<ButtonType> result = alert.showAndWait();
     if (result.isPresent() && result.get() == ButtonType.OK) {
-      runUtilityCommand("Observability truncate", npm("run", "observability:truncate"), reportingArea);
+      runUtilityCommand("Firebase observability reset", npm("run", "observability:truncate"), reportingArea);
     }
   }
 
@@ -489,14 +690,8 @@ public class QaReportViewerApp extends Application {
   private List<TestCommand> testCommands() {
     return List.of(
         new TestCommand("All Tests", List.of(
-            npm("run", "test:unit"),
-            npm("run", "test:integration"),
-            npm("run", "test:contract"),
-            npm("run", "test:e2e"),
-            npm("run", "test:load"),
-            npm("run", "test:report"),
-            npm("run", "observability:refresh")),
-            true),
+            npm("run", "test:all"),
+            npm("run", "observability:refresh"))),
         new TestCommand("Unit Tests", List.of(
             npm("run", "test:unit"),
             npm("run", "test:report", "--", "--type=Unit"),
@@ -518,7 +713,7 @@ public class QaReportViewerApp extends Application {
             npm("run", "test:report", "--", "--type=Load"),
             npm("run", "observability:refresh")),
             true),
-        new TestCommand("AI Coverage Workbook", List.of(
+        new TestCommand("AI Test Analysis Workbook", List.of(
             npm("run", "ai:coverage"))));
   }
 
@@ -636,6 +831,13 @@ public class QaReportViewerApp extends Application {
     @Override
     public String toString() {
       return label;
+    }
+  }
+
+  private record DocumentItem(String name, Path path) {
+    @Override
+    public String toString() {
+      return name;
     }
   }
 

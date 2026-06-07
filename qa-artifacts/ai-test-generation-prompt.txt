@@ -1,8 +1,8 @@
-FoodHub AI Test Coverage Generation
+FoodHub AI Test Analysis Generation
 
-Live DeepSeek API enabled: true
+Live DeepSeek API enabled: false
 Flag: FOODHUB_AI_LIVE=true
-API key env var: DEEPSEEK_API_KEY
+API key source: Firestore foodhub-6ba1c/deepSeek/ooz80WHRgmUV3WseQDnF/api-key
 
 ## Failure Analysis
 Model: deepseek-v4-pro
@@ -10,26 +10,14 @@ Thinking: enabled
 Reasoning effort: high
 Generate FoodHub failure-analysis rows from the provided logs and project context. Focus on timeout, selector, network, Docker/Testcontainers, Pact, k6, payment gateway, and report-generation signals.
 
-## AI Edge Cases
+## Test Scenario Analysis
 Model: deepseek-v4-flash
 Thinking: enabled
 Reasoning effort: medium
-Generate FoodHub edge-case test rows for new and existing features from requirements/code context. Include API, UI, payment, invoice, observability, contract, persistence, visual, and load risks.
-
-## Missing Test Scenarios
-Model: deepseek-v4-flash
-Thinking: enabled
-Reasoning effort: medium
-Generate FoodHub missing-test-scenario rows. Mark each as Implemented, Partially Implemented, or Candidate based on current project evidence.
-
-## Coverage Expansion
-Model: deepseek-v4-flash
-Thinking: enabled
-Reasoning effort: medium
-Generate FoodHub coverage-expansion rows. Focus on high-value additions across unit, integration, contract, E2E, visual, load, observability, and CI evidence.
+Generate FoodHub test scenario rows from requirements/code context. Include a Scenario_Category column with exactly one of: Edge Case, Missing Scenario, Coverage Expansion. Include duplicate items, large orders, and invalid payload shapes as AI-suggested missing scenarios when appropriate. Cover API, UI, payment, invoice, observability, contract, persistence, visual, and load risks.
 
 ## Test Data Suggestions
 Model: deepseek-v4-flash
 Thinking: enabled
 Reasoning effort: medium
-Generate FoodHub test-data suggestion rows for order, payment, customer, invoice, observability, load, and persistence test data.
+Generate FoodHub test-data suggestion rows for the edge cases, missing scenarios, and coverage expansion scenarios in the scenario-analysis task. Include Scenario_Category and Scenario_ID columns so each dataset maps back to a scenario.

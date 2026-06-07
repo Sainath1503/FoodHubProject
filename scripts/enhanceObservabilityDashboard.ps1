@@ -98,10 +98,15 @@ try {
   }
 
   $runHistory = Sheet $workbook "Run History"
+  $executionSummary = Sheet $workbook "Execution Summary"
   $routeMetrics = Sheet $workbook "Route Metrics"
   $statusMetrics = Sheet $workbook "Status Metrics"
   $testMetrics = Sheet $workbook "Test Metrics"
+  $testTypeRollup = Sheet $workbook "Test Type Rollup"
+  $prCheckFailures = Sheet $workbook "PR Check Failures"
   $loadMetrics = Sheet $workbook "Load Metrics"
+  $loadRollup = Sheet $workbook "Load Rollup"
+  $serviceHealth = Sheet $workbook "Service Health"
   $requestLogs = Sheet $workbook "Request Logs"
 
   $dashboard.Cells.Font.Name = "Segoe UI"
@@ -125,42 +130,70 @@ try {
   $subtitle.Merge()
   $subtitle.Interior.Color = 1777430
   $subtitle.Font.Color = 13421772
-  $subtitle.Value2 = "Portable SQLite-backed QA observability: request logs, metrics, trends, and test evidence"
+  $subtitle.Value2 = "Firebase-backed QA observability: execution-so-far metrics, request logs, CI failures, load trends, and service health"
 
-  $latestScope = "No runs"
+  $scope = "No runs"
+  $runCount = 0
+  $firstExecution = ""
+  $lastExecution = ""
   $totalChecks = 0
   $passedChecks = 0
   $failedChecks = 0
+  $skippedChecks = 0
   $requestCount = 0
   $errorCount = 0
   $avgDuration = 0
   $p95Duration = 0
   $paymentSuccess = 0
   $paymentFailure = 0
+  $serviceUptime = 0
+  $crashIndicators = 0
+  $latestHealthAt = ""
+  $latestHealthStatus = ""
+  [double]$healthyChecks = 0
+  [double]$failedHealthChecks = 0
 
-  if ($null -ne $runHistory -and (LastRow $runHistory) -ge 2) {
-    $latestScope = [string]$runHistory.Cells(2, 2).Value2
-    $totalChecks = [int](NumberOrZero ($runHistory.Cells(2, 3).Value2))
-    $passedChecks = [int](NumberOrZero ($runHistory.Cells(2, 4).Value2))
-    $failedChecks = [int](NumberOrZero ($runHistory.Cells(2, 5).Value2))
-    $requestCount = [int](NumberOrZero ($runHistory.Cells(2, 7).Value2))
-    $errorCount = [int](NumberOrZero ($runHistory.Cells(2, 8).Value2))
-    $avgDuration = [double](NumberOrZero ($runHistory.Cells(2, 9).Value2))
-    $p95Duration = [double](NumberOrZero ($runHistory.Cells(2, 10).Value2))
-    $paymentSuccess = [int](NumberOrZero ($runHistory.Cells(2, 11).Value2))
-    $paymentFailure = [int](NumberOrZero ($runHistory.Cells(2, 12).Value2))
+  if ($null -ne $executionSummary -and (LastRow $executionSummary) -ge 2) {
+    $scope = [string]$executionSummary.Cells(2, 1).Value2
+    $runCount = [int](NumberOrZero ($executionSummary.Cells(2, 2).Value2))
+    $firstExecution = [string]$executionSummary.Cells(2, 3).Value2
+    $lastExecution = [string]$executionSummary.Cells(2, 4).Value2
+    $totalChecks = [int](NumberOrZero ($executionSummary.Cells(2, 5).Value2))
+    $passedChecks = [int](NumberOrZero ($executionSummary.Cells(2, 6).Value2))
+    $failedChecks = [int](NumberOrZero ($executionSummary.Cells(2, 7).Value2))
+    $skippedChecks = [int](NumberOrZero ($executionSummary.Cells(2, 8).Value2))
+    $requestCount = [int](NumberOrZero ($executionSummary.Cells(2, 9).Value2))
+    $errorCount = [int](NumberOrZero ($executionSummary.Cells(2, 10).Value2))
+    $avgDuration = [double](NumberOrZero ($executionSummary.Cells(2, 11).Value2))
+    $p95Duration = [double](NumberOrZero ($executionSummary.Cells(2, 12).Value2))
+    $paymentSuccess = [int](NumberOrZero ($executionSummary.Cells(2, 13).Value2))
+    $paymentFailure = [int](NumberOrZero ($executionSummary.Cells(2, 14).Value2))
+  }
+
+  if ($null -ne $serviceHealth -and (LastRow $serviceHealth) -ge 2) {
+    $serviceUptime = [double](NumberOrZero ($serviceHealth.Cells(2, 5).Value2))
+    $crashIndicators = [int](NumberOrZero ($serviceHealth.Cells(2, 6).Value2))
+    $latestHealthAt = [string]$serviceHealth.Cells(2, 8).Value2
+    $latestHealthStatus = [string]$serviceHealth.Cells(2, 9).Value2
+    $healthyChecks = [double](NumberOrZero ($serviceHealth.Cells(2, 3).Value2))
+    $failedHealthChecks = [double](NumberOrZero ($serviceHealth.Cells(2, 4).Value2))
   }
 
   $passRate = if ($totalChecks -gt 0) { "{0:P1}" -f ($passedChecks / $totalChecks) } else { "0.0%" }
+  $failRate = if ($totalChecks -gt 0) { "{0:P1}" -f ($failedChecks / $totalChecks) } else { "0.0%" }
   $errorRate = if ($requestCount -gt 0) { "{0:P1}" -f ($errorCount / $requestCount) } else { "0.0%" }
+  $uptimeRate = "{0:N1}%" -f $serviceUptime
+  $prFailureCount = if ($null -ne $prCheckFailures -and (LastRow $prCheckFailures) -ge 2) { (LastRow $prCheckFailures) - 1 } else { 0 }
 
-  Add-Card $dashboard 18 118 150 88 "Report Scope" $latestScope "1F6F50"
-  Add-Card $dashboard 182 118 150 88 "Total Checks" "$totalChecks" "2B6CB0"
-  Add-Card $dashboard 346 118 150 88 "Passed" "$passedChecks" "43A047"
-  Add-Card $dashboard 510 118 150 88 "Failed" "$failedChecks" "E53935"
-  Add-Card $dashboard 674 118 150 88 "Pass Rate" $passRate "7E57C2"
-  Add-Card $dashboard 838 118 150 88 "Requests" "$requestCount" "FB8C00"
-  Add-Card $dashboard 1002 118 150 88 "P95 ms" "$p95Duration" "00ACC1"
+  Add-Card $dashboard 18 118 128 88 "Runs So Far" "$runCount" "1F6F50"
+  Add-Card $dashboard 158 118 128 88 "Total Tests" "$totalChecks" "2B6CB0"
+  Add-Card $dashboard 298 118 128 88 "Pass %" $passRate "43A047"
+  Add-Card $dashboard 438 118 128 88 "Fail %" $failRate "E53935"
+  Add-Card $dashboard 578 118 128 88 "PR Failures" "$prFailureCount" "C2185B"
+  Add-Card $dashboard 718 118 128 88 "Requests" "$requestCount" "FB8C00"
+  Add-Card $dashboard 858 118 128 88 "P95 ms" "$p95Duration" "00ACC1"
+  Add-Card $dashboard 998 118 128 88 "Uptime" $uptimeRate "00897B"
+  Add-Card $dashboard 1138 118 128 88 "Crashes" "$crashIndicators" "6D4C41"
 
   $row = 70
   $dashboard.Cells($row, 1).Value2 = "Status"
@@ -170,7 +203,7 @@ try {
   $dashboard.Cells($row + 2, 1).Value2 = "Failed"
   $dashboard.Cells($row + 2, 2).Value2 = $failedChecks
   $dashboard.Cells($row + 3, 1).Value2 = "Skipped/Other"
-  $dashboard.Cells($row + 3, 2).Value2 = [Math]::Max(0, $totalChecks - $passedChecks - $failedChecks)
+  $dashboard.Cells($row + 3, 2).Value2 = $skippedChecks
 
   $dashboard.Cells($row, 4).Value2 = "Metric"
   $dashboard.Cells($row, 5).Value2 = "Value"
@@ -180,6 +213,8 @@ try {
   $dashboard.Cells($row + 2, 5).Value2 = ("{0:N2}" -f $p95Duration)
   $dashboard.Cells($row + 3, 4).Value2 = "Error Rate"
   $dashboard.Cells($row + 3, 5).Value2 = [string]$errorRate
+  $dashboard.Cells($row + 4, 4).Value2 = "Service Uptime %"
+  $dashboard.Cells($row + 4, 5).Value2 = ("{0:N2}" -f $serviceUptime)
 
   $dashboard.Cells($row, 7).Value2 = "Payment"
   $dashboard.Cells($row, 8).Value2 = "Count"
@@ -187,6 +222,15 @@ try {
   $dashboard.Cells($row + 1, 8).Value2 = [string]$paymentSuccess
   $dashboard.Cells($row + 2, 7).Value2 = "Failed"
   $dashboard.Cells($row + 2, 8).Value2 = [string]$paymentFailure
+
+  $dashboard.Cells($row, 19).Value2 = "Service"
+  $dashboard.Cells($row, 20).Value2 = "Count"
+  $dashboard.Cells($row + 1, 19).Value2 = "Healthy Checks"
+  $dashboard.Cells($row + 1, 20).Value2 = $healthyChecks
+  $dashboard.Cells($row + 2, 19).Value2 = "Failed Health Checks"
+  $dashboard.Cells($row + 2, 20).Value2 = $failedHealthChecks
+  $dashboard.Cells($row + 3, 19).Value2 = "Crash Indicators"
+  $dashboard.Cells($row + 3, 20).Value2 = $crashIndicators
 
   $xlDoughnut = -4120
   $xlColumnClustered = 51
@@ -220,23 +264,20 @@ try {
     Add-Chart $dashboard "Run Trend" $xlLineMarkers $dashboard.Range("J70:M$($trendRow + $last - 1)") 804 226 430 250 | Out-Null
   }
 
-  if ($null -ne $testMetrics -and (LastRow $testMetrics) -ge 2) {
-    $latestGeneratedAt = $testMetrics.Cells(2, 1).Value2
+  if ($null -ne $testTypeRollup -and (LastRow $testTypeRollup) -ge 2) {
     $outRow = 70
     $dashboard.Cells($outRow, 15).Value2 = "Type"
     $dashboard.Cells($outRow, 16).Value2 = "Passed"
     $dashboard.Cells($outRow, 17).Value2 = "Failed"
     $writeRow = $outRow + 1
-    for ($i = 2; $i -le (LastRow $testMetrics); $i++) {
-      if ($testMetrics.Cells($i, 1).Value2 -eq $latestGeneratedAt) {
-        $dashboard.Cells($writeRow, 15).Value2 = [string]$testMetrics.Cells($i, 2).Value2
-        $dashboard.Cells($writeRow, 16).Value2 = [double](NumberOrZero ($testMetrics.Cells($i, 4).Value2))
-        $dashboard.Cells($writeRow, 17).Value2 = [double](NumberOrZero ($testMetrics.Cells($i, 5).Value2))
-        $writeRow++
-      }
+    for ($i = 2; $i -le (LastRow $testTypeRollup); $i++) {
+      $dashboard.Cells($writeRow, 15).Value2 = [string]$testTypeRollup.Cells($i, 1).Value2
+      $dashboard.Cells($writeRow, 16).Value2 = [double](NumberOrZero ($testTypeRollup.Cells($i, 5).Value2))
+      $dashboard.Cells($writeRow, 17).Value2 = [double](NumberOrZero ($testTypeRollup.Cells($i, 6).Value2))
+      $writeRow++
     }
     if ($writeRow -gt ($outRow + 1)) {
-      Add-Chart $dashboard "Tests by Type" $xlColumnClustered $dashboard.Range("O70:Q$($writeRow - 1)") 18 500 390 240 | Out-Null
+      Add-Chart $dashboard "Tests by Type So Far" $xlColumnClustered $dashboard.Range("O70:Q$($writeRow - 1)") 18 500 390 240 | Out-Null
     }
   }
 
@@ -244,9 +285,28 @@ try {
     Add-Chart $dashboard "HTTP Status Distribution" $xlColumnClustered $statusMetrics.Range("A1:B$(LastRow $statusMetrics)") 426 500 330 240 | Out-Null
   }
 
-  if ($null -ne $loadMetrics -and (LastRow $loadMetrics) -ge 2) {
-    $last = [Math]::Min((LastRow $loadMetrics), 8)
-    Add-Chart $dashboard "Load Metrics" $xlBarClustered $loadMetrics.Range("B1:C$last") 774 500 460 240 | Out-Null
+  if ($null -ne $loadRollup -and (LastRow $loadRollup) -ge 2) {
+    $outRow = 70
+    $dashboard.Cells($outRow, 22).Value2 = "Load Metric"
+    $dashboard.Cells($outRow, 23).Value2 = "Average"
+    $dashboard.Cells($outRow, 24).Value2 = "Max"
+    $dashboard.Cells($outRow, 25).Value2 = "Threshold"
+    $writeRow = $outRow + 1
+    $maxLoadRows = [Math]::Min((LastRow $loadRollup), 8)
+    for ($i = 2; $i -le $maxLoadRows; $i++) {
+      $dashboard.Cells($writeRow, 22).Value2 = [string]$loadRollup.Cells($i, 1).Value2
+      $dashboard.Cells($writeRow, 23).Value2 = [double](NumberOrZero ($loadRollup.Cells($i, 5).Value2))
+      $dashboard.Cells($writeRow, 24).Value2 = [double](NumberOrZero ($loadRollup.Cells($i, 6).Value2))
+      $dashboard.Cells($writeRow, 25).Value2 = [double](NumberOrZero ($loadRollup.Cells($i, 7).Value2))
+      $writeRow++
+    }
+    if ($writeRow -gt ($outRow + 1)) {
+      Add-Chart $dashboard "Load Test Overall So Far" $xlBarClustered $dashboard.Range("V70:Y$($writeRow - 1)") 774 500 460 240 | Out-Null
+    }
+  }
+
+  if ($null -ne $serviceHealth -and (LastRow $serviceHealth) -ge 2) {
+    Add-Chart $dashboard "Service Health / Crash Signals" $xlColumnClustered $dashboard.Range("S70:T73") 1252 500 330 240 | Out-Null
   }
 
   $insight = $dashboard.Range("A41:Z45")
@@ -254,18 +314,40 @@ try {
   $insight.Font.Color = 1777430
   $null = ($insight.Font.Bold = $true)
   $insight.Cells(1, 1).Value2 = "AI/QA Insights"
-  $insight.Cells(2, 1).Value2 = "Pass rate: $passRate | Error rate: $errorRate | Payment success/failure: $paymentSuccess/$paymentFailure"
-  $insight.Cells(3, 1).Value2 = "SQLite-backed history is portable with the project and can be refreshed from the QA Report Viewer."
+  $insight.Cells(2, 1).Value2 = "Scope: $scope | First execution: $firstExecution | Last execution: $lastExecution"
+  $insight.Cells(3, 1).Value2 = "Pass rate so far: $passRate | Fail rate so far: $failRate | PR check failures: $prFailureCount | Error rate: $errorRate"
+  $insight.Cells(4, 1).Value2 = "Service uptime: $uptimeRate | Latest health: $latestHealthStatus at $latestHealthAt | Payment success/failure: $paymentSuccess/$paymentFailure"
+
+  if ($null -ne $testTypeRollup -and (LastRow $testTypeRollup) -ge 2) {
+    $dashboard.Range("A47").Value2 = "Last Execution by Test Type"
+    $null = ($dashboard.Range("A47").Font.Bold = $true)
+    $testTypeRollup.Range("A1:I1").Copy($dashboard.Range("A48")) | Out-Null
+    $testTypeRollup.Range("A2:I$(LastRow $testTypeRollup)").Copy($dashboard.Range("A49")) | Out-Null
+    $dashboard.Range("A48:I56").Borders.LineStyle = 1
+    $dashboard.Range("A48:I48").Interior.Color = 1777430
+    $dashboard.Range("A48:I48").Font.Color = 16777215
+  }
+
+  if ($null -ne $prCheckFailures -and (LastRow $prCheckFailures) -ge 2) {
+    $dashboard.Range("K47").Value2 = "Recent PR Check Failures"
+    $null = ($dashboard.Range("K47").Font.Bold = $true)
+    $prCheckFailures.Range("A1:G1").Copy($dashboard.Range("K48")) | Out-Null
+    $failureLast = [Math]::Min((LastRow $prCheckFailures), 6)
+    $prCheckFailures.Range("A2:G$failureLast").Copy($dashboard.Range("K49")) | Out-Null
+    $dashboard.Range("K48:Q54").Borders.LineStyle = 1
+    $dashboard.Range("K48:Q48").Interior.Color = 1777430
+    $dashboard.Range("K48:Q48").Font.Color = 16777215
+  }
 
   if ($null -ne $requestLogs -and (LastRow $requestLogs) -ge 2) {
-    $dashboard.Range("A47").Value2 = "Recent Request Logs"
-    $null = ($dashboard.Range("A47").Font.Bold = $true)
-    $requestLogs.Range("A1:G1").Copy($dashboard.Range("A48")) | Out-Null
+    $dashboard.Range("A58").Value2 = "Recent Request Logs"
+    $null = ($dashboard.Range("A58").Font.Bold = $true)
+    $requestLogs.Range("A1:G1").Copy($dashboard.Range("A59")) | Out-Null
     $recentLast = [Math]::Min((LastRow $requestLogs), 8)
-    $requestLogs.Range("A2:G$recentLast").Copy($dashboard.Range("A49")) | Out-Null
-    $dashboard.Range("A48:G55").Borders.LineStyle = 1
-    $dashboard.Range("A48:G48").Interior.Color = 1777430
-    $dashboard.Range("A48:G48").Font.Color = 16777215
+    $requestLogs.Range("A2:G$recentLast").Copy($dashboard.Range("A60")) | Out-Null
+    $dashboard.Range("A59:G66").Borders.LineStyle = 1
+    $dashboard.Range("A59:G59").Interior.Color = 1777430
+    $dashboard.Range("A59:G59").Font.Color = 16777215
   }
 
   $null = ($dashboard.Range("A70:Z120").EntireRow.Hidden = $true)

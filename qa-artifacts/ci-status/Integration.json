@@ -1,0 +1,6 @@
+{
+  "check": "Integration",
+  "label": "Integration tests",
+  "status": "passed",
+  "reason": ""
+}

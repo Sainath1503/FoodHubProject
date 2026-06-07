@@ -4,8 +4,8 @@ This folder contains QA artifacts created for the FoodHub Takeaway SaaS test str
 
 ## Files
 
-- `FoodHub-AI-Test-Coverage.xlsx`
-  Excel workbook containing AI-assisted QA coverage.
+- `FoodHub-AI-Test-Analysis.xlsx`
+  Excel workbook containing AI-assisted QA analysis.
 
 - `failure-analysis-report.md`
   Local summary generated from a test failure log.
@@ -24,22 +24,16 @@ This folder contains QA artifacts created for the FoodHub Takeaway SaaS test str
 
 ## Excel Workbook
 
-Open `FoodHub-AI-Test-Coverage.xlsx` in Excel. It contains these sheets:
-
-- `AI Edge Cases`
-  DeepSeek-backed or fallback edge cases for the food ordering API, payment flow, invoice flow, Pact contracts, Testcontainers persistence, k6 load testing, observability, and report evidence.
-
-- `Missing Test Scenarios`
-  Missing scenarios suggested from requirements/code and marked as Implemented, Partially Implemented, or Candidate.
-
-- `Coverage Expansion`
-  Coverage expansion ideas, including duplicate items, large orders, invalid payload shapes, consumer/provider contracts, real DB persistence, observability, and load-test hit accounting.
-
-- `Test Data Suggestions`
-  Test data ideas and builders, including randomized order inputs, boundary values, E2E card fixtures, invoice customer data, persisted orders, observability metrics, and k6 hit-count accounting.
+Open `FoodHub-AI-Test-Analysis.xlsx` in Excel. It contains these sheets:
 
 - `Failure Analysis`
   DeepSeek `deepseek-v4-pro` failure-analysis rows when live mode is enabled, or process steps for using logs with AI to identify flaky patterns when live mode is disabled.
+
+- `Test Scenario Analysis`
+  DeepSeek `deepseek-v4-flash` or fallback rows for edge cases, missing scenarios, and coverage expansion. The `Scenario_Category` column identifies which type each row belongs to.
+
+- `Test Data Suggestions`
+  DeepSeek `deepseek-v4-flash` or fallback test data suggestions mapped to scenario rows by `Scenario_ID` and `Scenario_Category`.
 
 - `Run Configuration`
   Shows whether live DeepSeek API usage was enabled and which model/reasoning mapping was used.
@@ -50,14 +44,13 @@ Regenerate the workbook with:
 npm run ai:coverage
 ```
 
-Live DeepSeek mode is controlled by environment variables:
+Live DeepSeek mode is controlled by project config:
 
 ```bash
 FOODHUB_AI_LIVE=true
-DEEPSEEK_API_KEY=<your DeepSeek API key>
 ```
 
-Leave `FOODHUB_AI_LIVE` unset or set to `false` to use local fallback rows without API calls.
+Use the FoodHub Automation Console `Live AI (DeepSeek)` switch or `npm run ai:live -- true|false` to update `.env`, `.env.example`, and the workbook Run Configuration sheet.
 
 ## Test Report
 

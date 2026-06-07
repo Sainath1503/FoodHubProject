@@ -9,9 +9,11 @@ $viewerRoot = Join-Path $repoRoot "qa-report-viewer"
 $targetRoot = Join-Path $viewerRoot "target"
 $packageInput = Join-Path $targetRoot "package-input"
 $packageOutput = Join-Path $targetRoot "package"
-$appImage = Join-Path $packageOutput "FoodHubQAReportViewer"
-$rootExe = Join-Path $repoRoot "FoodHubQAReportViewer.exe"
-$rootIcon = Join-Path $repoRoot "FoodHubQAReportViewer.ico"
+$appImage = Join-Path $packageOutput "FoodHubAutomationConsole"
+$rootExe = Join-Path $repoRoot "FoodHubAutomationConsole.exe"
+$rootIcon = Join-Path $repoRoot "FoodHubAutomationConsole.ico"
+$legacyRootExe = Join-Path $repoRoot "FoodHubQAReportViewer.exe"
+$legacyRootIcon = Join-Path $repoRoot "FoodHubQAReportViewer.ico"
 $rootApp = Join-Path $repoRoot "app"
 $rootRuntime = Join-Path $repoRoot "runtime"
 $viewerIcon = Join-Path $viewerRoot "src\main\resources\com\foodhub\tools\qareportviewer\foodhub-report-viewer.ico"
@@ -35,7 +37,7 @@ try {
 
   jpackage `
     --type app-image `
-    --name FoodHubQAReportViewer `
+    --name FoodHubAutomationConsole `
     --input $packageInput `
     --main-jar qa-report-viewer-1.0.0.jar `
     --main-class com.foodhub.tools.qareportviewer.MainLauncher `
@@ -50,7 +52,7 @@ if (!(Test-Path $appImage)) {
   throw "jpackage did not create the expected app image at $appImage"
 }
 
-foreach ($path in @($rootExe, $rootIcon, $rootApp, $rootRuntime)) {
+foreach ($path in @($rootExe, $rootIcon, $legacyRootExe, $legacyRootIcon, $rootApp, $rootRuntime)) {
   $resolvedRoot = [System.IO.Path]::GetFullPath($repoRoot)
   $resolvedPath = [System.IO.Path]::GetFullPath($path)
   if (!$resolvedPath.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -59,11 +61,11 @@ foreach ($path in @($rootExe, $rootIcon, $rootApp, $rootRuntime)) {
   Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Copy-Item -LiteralPath (Join-Path $appImage "FoodHubQAReportViewer.exe") -Destination $repoRoot
-Copy-Item -LiteralPath (Join-Path $appImage "FoodHubQAReportViewer.ico") -Destination $repoRoot
+Copy-Item -LiteralPath (Join-Path $appImage "FoodHubAutomationConsole.exe") -Destination $repoRoot
+Copy-Item -LiteralPath (Join-Path $appImage "FoodHubAutomationConsole.ico") -Destination $repoRoot
 Copy-Item -LiteralPath (Join-Path $appImage "app") -Destination $repoRoot -Recurse
 Copy-Item -LiteralPath (Join-Path $appImage "runtime") -Destination $repoRoot -Recurse
 
 Remove-Item -LiteralPath $packageOutput -Recurse -Force -ErrorAction SilentlyContinue
 
-Write-Host "FoodHubQAReportViewer.exe published to $rootExe"
+Write-Host "FoodHubAutomationConsole.exe published to $rootExe"

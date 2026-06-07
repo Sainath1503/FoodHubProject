@@ -23,21 +23,27 @@ Main risks covered:
 
 AI is used as a QA accelerator, not just as a label:
 
-- AI-generated edge cases are exported to `qa-artifacts/FoodHub-AI-Test-Coverage.xlsx`.
-- The workbook has separate sheets for `Failure Analysis`, `AI Edge Cases`, `Missing Test Scenarios`, `Coverage Expansion`, and `Test Data Suggestions`.
+- AI-generated analysis is exported to `qa-artifacts/FoodHub-AI-Test-Analysis.xlsx`.
+- The workbook has separate sheets for `Failure Analysis`, `Test Scenario Analysis`, `Test Data Suggestions`, and `Run Configuration`.
+- `Test Scenario Analysis` uses `Scenario_Category` to separate edge cases, missing scenarios, and coverage expansion.
 - AI-suggested missing scenarios are implemented in integration tests: duplicate items, large orders, invalid payload shapes, and randomized order data.
 - Test builders generate deterministic randomized order inputs and boundary values in `tests/fixtures/orderFactory.ts`.
 - Failure logs can be analyzed with `npm run ai:analyze-failures -- <log-file>`, which creates a local report and an AI-ready prompt.
 
-Live DeepSeek API generation is opt-in. By default `npm run ai:coverage` uses local deterministic fallback rows and does not call an external model.
+Live DeepSeek API generation is controlled by `FOODHUB_AI_LIVE`. When it is `false`, `npm run ai:coverage` uses local deterministic fallback rows and prompt generation without calling DeepSeek.
 
 Local `.env` file:
 
 ```env
 FOODHUB_AI_LIVE=true
-DEEPSEEK_API_KEY=<your DeepSeek API key>
 DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
+FOODHUB_FIRESTORE_PROJECT_ID=foodhub-6ba1c
+FOODHUB_DEEPSEEK_KEY_COLLECTION=deepSeek
+FOODHUB_DEEPSEEK_KEY_DOCUMENT=ooz80WHRgmUV3WseQDnF
+FOODHUB_DEEPSEEK_KEY_FIELD=api-key
 ```
+
+You can set this from the FoodHub Automation Console in the `Services and Test runner` tab with the `Live AI (DeepSeek)` switch. The switch updates `.env`, `.env.example`, and the `Run Configuration` sheet in `qa-artifacts/FoodHub-AI-Test-Analysis.xlsx`.
 
 Then run:
 
@@ -45,7 +51,7 @@ Then run:
 npm run ai:coverage
 ```
 
-CI/CD can use the same switch by setting `FOODHUB_AI_LIVE=true` and storing `DEEPSEEK_API_KEY` as a secret. Leave `FOODHUB_AI_LIVE` unset or set to `false` to disable real-time API usage.
+CI/CD reads the checked-in project config at runtime instead of GitHub repository variables or secrets to decide whether live AI is enabled. The DeepSeek bearer token is read from Cloud Firestore at `deepSeek/ooz80WHRgmUV3WseQDnF` field `api-key` by default, so GitHub Actions does not need a `DEEPSEEK_API_KEY` secret while Firestore read rules allow this access.
 
 The checkout also includes an AI-assisted recommendation endpoint. It uses deterministic menu and cart signals to suggest add-ons without calling an external AI provider, keeping tests fast and reliable while still demonstrating meaningful AI-style decision support in the product.
 
@@ -70,6 +76,8 @@ npm run ai:coverage
 npm run ai:analyze-failures -- tests/fixtures/failureLogs/sample-flaky-log.txt
 ```
 
+`npm run test:all` runs the local test groups in parallel with fail-fast behavior. After the first failure, active/pending checks are stopped or skipped, resources are released, and `qa-artifacts/test-report.html` marks skipped checks with the failure reason.
+
 The app runs on `http://127.0.0.1:4173`. The payment gateway runs on `http://127.0.0.1:4174`.
 
 Swagger/OpenAPI documentation is available at:
@@ -83,13 +91,19 @@ The Playwright E2E report is generated at `playwright-report/index.html` and inc
 
 ## Local Observability Dashboard
 
-FoodHub includes a portable local observability flow for QA environments where a central dashboard is not available.
+FoodHub includes a Firebase-backed observability flow for QA environments, local users, and CI/CD runs that need to share one metrics store.
 
 ```bash
 npm run observability:refresh
 ```
 
-This command collects structured request logs and QA metrics, ingests them into `qa-artifacts/observability/foodhub-observability.sqlite`, and generates `qa-artifacts/FoodHub-Observability-Dashboard.xlsx`. The QA Report Viewer also has controls to refresh the dashboard, open the workbook, and truncate the SQLite observability tables.
+This command collects structured request logs and QA metrics, pushes them to Firebase Realtime Database, pulls the shared metrics snapshot, and generates `qa-artifacts/FoodHub-Observability-Dashboard.xlsx`. The default database is `https://foodhub-6ba1c-default-rtdb.firebaseio.com/` under `/observability`; override it with `FOODHUB_FIREBASE_DATABASE_URL`, change the node with `FOODHUB_FIREBASE_OBSERVABILITY_PATH`, or pass `FOODHUB_FIREBASE_AUTH_TOKEN` when database rules require authenticated REST access.
+
+To migrate the previous SQLite observability history into Firebase, run:
+
+```bash
+npm run observability:migrate:firebase
+```
 
 ## Test Automation Strategy
 
