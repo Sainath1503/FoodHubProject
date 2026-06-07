@@ -112,6 +112,81 @@ function Report-Tool([string]$name, [bool]$available, [string]$version = "") {
   Write-Host ("{0,-18} {1}{2}" -f $name, $status, $detail)
 }
 
+function Test-DockerEngine {
+  if (!(Command-Exists "docker")) {
+    return $false
+  }
+
+  docker info *> $null
+  return $LASTEXITCODE -eq 0
+}
+
+function Test-DockerImage([string]$image) {
+  docker image inspect $image *> $null
+  return $LASTEXITCODE -eq 0
+}
+
+function Pull-DockerImage([string]$image) {
+  if ($CheckOnly) {
+    Write-Host "CHECK ONLY: Would pull Docker image $image."
+    return
+  }
+
+  Write-Host "Pulling Docker image $image..."
+  docker pull $image
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "Docker could not pull $image. Check Docker Desktop, network access, or registry access."
+  }
+}
+
+function Get-RunningContainerNames([string]$image) {
+  $containers = docker ps --filter "ancestor=$image" --format "{{.Names}}" 2>$null
+  if ($LASTEXITCODE -ne 0 -or !$containers) {
+    return @()
+  }
+
+  return @($containers)
+}
+
+function Check-DockerTestImages {
+  $requiredImages = @(
+    "postgres:16-alpine",
+    "grafana/k6:2.0.0",
+    "testcontainers/ryuk"
+  )
+
+  Write-Section "Docker test images and containers"
+
+  if (!(Command-Exists "docker")) {
+    Write-Host "Docker command was not found. Install Docker Desktop before pulling test images."
+    return
+  }
+
+  if (!(Test-DockerEngine)) {
+    Write-Host "Docker is installed, but the Docker engine is not running. Start Docker Desktop, then rerun this check."
+    return
+  }
+
+  foreach ($image in $requiredImages) {
+    $imageAvailable = Test-DockerImage $image
+    if ($imageAvailable) {
+      Report-Tool $image $true "image available"
+    } else {
+      Report-Tool $image $false "image missing"
+      Pull-DockerImage $image
+      $imageAvailable = Test-DockerImage $image
+      Report-Tool $image $imageAvailable ($(if ($imageAvailable) { "image available after pull" } else { "image still missing" }))
+    }
+
+    $containers = Get-RunningContainerNames $image
+    if ($containers.Count -gt 0) {
+      Write-Host ("{0,-18} RUNNING - {1}" -f "Container", ($containers -join ", "))
+    } else {
+      Write-Host ("{0,-18} NOT RUNNING - no active container for {1}" -f "Container", $image)
+    }
+  }
+}
+
 Write-Host "FoodHub prerequisite check"
 Write-Host "Repository: $((Resolve-Path (Join-Path $PSScriptRoot '..')).Path)"
 Write-Host "Mode: $(if ($CheckOnly) { 'check only' } else { 'check and install where feasible' })"
@@ -185,6 +260,8 @@ if ($dockerOk) {
   Write-Host "Manual action required: install Docker Desktop from https://www.docker.com/products/docker-desktop/"
   Write-Host "After installation, start Docker Desktop and complete WSL2/engine setup before running Testcontainers or Docker k6 tests."
 }
+
+Check-DockerTestImages
 
 Write-Section "Next recommended commands"
 Write-Host "npm install"
