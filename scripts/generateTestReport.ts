@@ -245,14 +245,14 @@ function coverageStatus(): TestStatus {
 
 function readLoadMetrics(): LoadMetric[] {
   const ciStatus = ciStatuses.get("Load");
-  if (ciStatus?.status === "skipped") {
-    return [
-      { label: "Load tests skipped", value: 0, threshold: 1, unit: "", status: "Skipped", chart: false },
-      { label: ciStatus.reason, value: 0, threshold: 1, unit: "", status: "Skipped", chart: false }
-    ];
-  }
-
   if (!existsSync(loadSummaryPath)) {
+    if (ciStatus?.status === "skipped") {
+      return [
+        { label: "Load tests skipped", value: 0, threshold: 1, unit: "", status: "Skipped", chart: false },
+        { label: ciStatus.reason, value: 0, threshold: 1, unit: "", status: "Skipped", chart: false }
+      ];
+    }
+
     if (ciStatus?.status === "failed") {
       return [
         { label: "Load tests failed before summary was produced", value: 1, threshold: 0, unit: "", status: "Failed", chart: false },

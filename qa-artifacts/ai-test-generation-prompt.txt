@@ -1,6 +1,6 @@
 FoodHub AI Test Analysis Generation
 
-Live DeepSeek API enabled: true
+Live DeepSeek API enabled: false
 Flag: FOODHUB_AI_LIVE=true
 API key source: Firestore foodhub-6ba1c/deepSeek/ooz80WHRgmUV3WseQDnF/api-key
 

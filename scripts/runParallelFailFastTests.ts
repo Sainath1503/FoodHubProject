@@ -10,6 +10,7 @@ type Check = {
   label: string;
   command: string[];
   needsFoodHubService?: boolean;
+  env?: Record<string, string>;
 };
 
 const allChecks: Check[] = [
@@ -17,8 +18,20 @@ const allChecks: Check[] = [
   { name: "Integration", label: "Integration tests", command: npm("run", "test:integration") },
   { name: "Contract", label: "Pact contract tests", command: npm("run", "test:contract") },
   { name: "Coverage", label: "Critical logic coverage gate", command: npm("run", "test:coverage") },
-  { name: "E2E", label: "E2E tests", command: npm("run", "test:e2e"), needsFoodHubService: true },
-  { name: "Load", label: "Load tests", command: npm("run", "test:load"), needsFoodHubService: true }
+  {
+    name: "E2E",
+    label: "E2E tests",
+    command: npm("run", "test:e2e"),
+    needsFoodHubService: true,
+    env: { FOODHUB_SKIP_PLAYWRIGHT_WEBSERVER: "true" }
+  },
+  {
+    name: "Load",
+    label: "Load tests",
+    command: npm("run", "test:load:docker"),
+    needsFoodHubService: true,
+    env: { BASE_URL: "http://host.docker.internal:4173" }
+  }
 ];
 const checks = selectedChecks();
 
@@ -57,7 +70,12 @@ process.exit(exitCode);
 async function main() {
   try {
     await ensureFoodHubService();
-    const results = await Promise.all(checks.map(runCheck));
+    const parallelChecks = checks.filter((check) => check.name !== "Coverage");
+    const coverageCheck = checks.find((check) => check.name === "Coverage");
+    const results = await Promise.all(parallelChecks.map(runCheck));
+    if (coverageCheck) {
+      results.push(firstFailure ? skipCheck(coverageCheck, firstFailure) : await runCheck(coverageCheck));
+    }
     await generateQaReport();
     return results.some((code) => code !== 0) ? 1 : 0;
   } finally {
@@ -89,7 +107,7 @@ async function runCheck(check: Check): Promise<number> {
   }
 
   console.log(`[${check.label}] starting: ${check.command.join(" ")}`);
-  const child = spawnCommand(check.name, check.command);
+  const child = spawnCommand(check.name, check.command, check.env);
   activeProcesses.set(check.name, child);
 
   const exitCode = await waitForExit(child);
@@ -136,6 +154,11 @@ function markSkipped(check: Check, failure: { label: string; reason: string }) {
   console.log(`[${check.label}] skipped because of ${failure.label} failure.`);
 }
 
+function skipCheck(check: Check, failure: { label: string; reason: string }) {
+  markSkipped(check, failure);
+  return 0;
+}
+
 function writeStatus(check: Check, status: CheckStatus, reason: string) {
   const payload = {
     check: check.name,
@@ -146,7 +169,7 @@ function writeStatus(check: Check, status: CheckStatus, reason: string) {
   writeFileSync(path.join(ciStatusDir, `${check.name}.json`), `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
 
-function spawnCommand(label: string, command: string[]) {
+function spawnCommand(label: string, command: string[], extraEnv: Record<string, string> = {}) {
   const spawnFile = process.platform === "win32" ? "cmd.exe" : command[0];
   const spawnArgs = process.platform === "win32"
     ? ["/d", "/s", "/c", command.map(quoteWindowsArg).join(" ")]
@@ -157,7 +180,8 @@ function spawnCommand(label: string, command: string[]) {
     env: {
       ...process.env,
       BASE_URL: process.env.BASE_URL ?? "http://127.0.0.1:4173",
-      PLAYWRIGHT_HTML_OPEN: "never"
+      PLAYWRIGHT_HTML_OPEN: "never",
+      ...extraEnv
     },
     shell: false,
     stdio: ["ignore", "pipe", "pipe"],
@@ -224,7 +248,7 @@ function stopProcessTree(child: ChildProcess) {
   }
 
   if (process.platform === "win32" && child.pid) {
-    spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+    spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
     return;
   }
 

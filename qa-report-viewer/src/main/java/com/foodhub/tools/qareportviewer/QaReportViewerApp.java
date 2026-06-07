@@ -705,6 +705,10 @@ public class QaReportViewerApp extends Application {
             npm("run", "test:contract"),
             npm("run", "test:report", "--", "--type=Contract"),
             npm("run", "observability:refresh"))),
+        new TestCommand("Coverage Tests", List.of(
+            npm("run", "test:coverage"),
+            npm("run", "test:report"),
+            npm("run", "observability:refresh"))),
         new TestCommand("E2E Tests", List.of(
             npm("run", "test:e2e"),
             npm("run", "test:report", "--", "--type=E2E"),
