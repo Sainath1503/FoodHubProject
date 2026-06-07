@@ -15,6 +15,17 @@ function Test-Command([string]$command) {
   return $null -ne (Get-Command $command -ErrorAction SilentlyContinue)
 }
 
+function Resolve-Executable([string[]]$commands) {
+  foreach ($command in $commands) {
+    $resolved = Get-Command $command -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($resolved) {
+      return $resolved.Source
+    }
+  }
+
+  return ""
+}
+
 function Get-CommandOutput([string]$command, [string[]]$arguments) {
   if (!(Test-Command $command)) {
     return ""
@@ -56,10 +67,16 @@ function Install-Node20 {
   Update-ProcessPath
 }
 
-function Run-NpmCommand([string[]]$arguments) {
-  $display = "npm $($arguments -join ' ')"
+function Run-NpmCommand([string]$command, [string[]]$commandArguments = @()) {
+  $npmCommand = Resolve-Executable @("npm.cmd", "npm.exe", "npm")
+  if (!$npmCommand) {
+    throw "npm executable was not found on PATH."
+  }
+
+  $allArguments = @($command) + $commandArguments
+  $display = "npm $($allArguments -join ' ')"
   Write-SetupLog "Command" $display "START"
-  & npm @arguments
+  & $npmCommand @allArguments
   if ($LASTEXITCODE -ne 0) {
     throw "$display failed with exit code $LASTEXITCODE."
   }
@@ -97,7 +114,8 @@ if ($nodeMajor -ge 20) {
   Write-SetupLog "Prerequisite check" "Node.js 20+" "OK" $nodeVersion
 }
 
-$npmVersion = Get-CommandOutput "npm" @("--version")
+$npmCommand = Resolve-Executable @("npm.cmd", "npm.exe", "npm")
+$npmVersion = if ($npmCommand) { (& $npmCommand "--version" 2>$null | Select-Object -First 1) } else { "" }
 if ($npmVersion) {
   Write-SetupLog "Prerequisite check" "npm" "OK" $npmVersion
 } else {
@@ -106,9 +124,9 @@ if ($npmVersion) {
 
 Push-Location $repoRoot
 try {
-  Run-NpmCommand @("install")
+  Run-NpmCommand "install"
   Stop-AutomationConsole
-  Run-NpmCommand @("run", "build:qa-report-viewer")
+  Run-NpmCommand "run" @("build:qa-report-viewer")
 } finally {
   Pop-Location
 }
