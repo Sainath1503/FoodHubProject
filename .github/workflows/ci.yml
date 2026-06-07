@@ -120,7 +120,15 @@ jobs:
                 -e THINK_TIME_SECONDS=0.2 \
                 -v "${{ github.workspace }}:/work" \
                 -w /work \
-                grafana/k6:2.0.0 run tests/load/foodhub-api.k6.js
+                grafana/k6:2.0.0 run \
+                  --summary-export qa-artifacts/load-test-summary.json \
+                  tests/load/foodhub-api.k6.js
+
+              ls -la qa-artifacts
+              test -s qa-artifacts/load-test-summary.json || {
+                echo "Missing qa-artifacts/load-test-summary.json after k6 run"
+                exit 1
+              }
               ;;
             *)
               echo "Unknown check: $CHECK_NAME"
@@ -190,7 +198,7 @@ jobs:
         with:
           name: load-test-summary
           path: qa-artifacts/load-test-summary.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
       - name: Fail matrix check after artifact upload
         if: always() && steps.run-check.outcome != 'success'
