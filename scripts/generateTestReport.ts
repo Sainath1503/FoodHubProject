@@ -267,14 +267,14 @@ function readLoadMetrics(): LoadMetric[] {
   }
 
   const summary = JSON.parse(readFileSync(loadSummaryPath, "utf8"));
-  const p95 = Number(summary.metrics?.http_req_duration?.values?.["p(95)"] ?? 0);
-  const requestFailureRate = Number(summary.metrics?.http_req_failed?.values?.rate ?? 0);
-  const orderFailureRate = Number(summary.metrics?.foodhub_order_failures?.values?.rate ?? 0);
+  const p95 = readK6Metric(summary, "http_req_duration", "p(95)");
+  const requestFailureRate = readK6Metric(summary, "http_req_failed", "rate");
+  const orderFailureRate = readK6Metric(summary, "foodhub_order_failures", "rate");
 
-  const iterations = Number(summary.metrics?.iterations?.values?.count ?? 0);
-  const totalRequests = Number(summary.metrics?.http_reqs?.values?.count ?? iterations * 3);
-  const requestRate = Number(summary.metrics?.http_reqs?.values?.rate ?? 0);
-  const maxVirtualUsers = Number(summary.metrics?.vus_max?.values?.max ?? summary.metrics?.vus_max?.values?.value ?? 0);
+  const iterations = readK6Metric(summary, "iterations", "count");
+  const totalRequests = readK6Metric(summary, "http_reqs", "count") || iterations * 3;
+  const requestRate = readK6Metric(summary, "http_reqs", "rate");
+  const maxVirtualUsers = readK6Metric(summary, "vus_max", "max") || readK6Metric(summary, "vus_max", "value");
 
   return [
     metric("HTTP p95 response time", p95, 500, " ms", true),
@@ -288,6 +288,28 @@ function readLoadMetrics(): LoadMetric[] {
     metric("POST /order hits", iterations, iterations, "", false),
     metric("HTTP requests per second", requestRate, requestRate, "/s", false)
   ];
+}
+
+function readK6Metric(summary: unknown, metricName: string, valueName: string): number {
+  const metrics = summary && typeof summary === "object" && "metrics" in summary
+    ? (summary as { metrics?: Record<string, unknown> }).metrics
+    : undefined;
+  const metricValue = metrics?.[metricName];
+  if (!metricValue || typeof metricValue !== "object") {
+    return 0;
+  }
+
+  const metricRecord = metricValue as Record<string, unknown>;
+  const values = metricRecord.values;
+  if (values && typeof values === "object") {
+    return Number((values as Record<string, unknown>)[valueName] ?? 0);
+  }
+
+  if (valueName === "rate" && typeof metricRecord.rate === "number") {
+    return metricRecord.rate;
+  }
+
+  return Number(metricRecord[valueName] ?? 0);
 }
 
 function readCoverageMetrics(): CoverageMetric[] {
