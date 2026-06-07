@@ -147,6 +147,7 @@ public class QaReportViewerApp extends Application {
   private BorderPane createServicesTestRunnerTab() {
     VBox buttons = new VBox(10,
         sectionLabel("Services"),
+        actionButton("Check / Install Prerequisites", () -> runUtilityCommand("Prerequisite check", npm("run", "prerequisites:check"), servicesArea)),
         actionButton("Start Service", this::startFoodHubService),
         actionButton("Stop Service", () -> stopManagedProcess("FoodHub service", true)),
         actionButton("Start Swagger Service", this::startSwaggerService),

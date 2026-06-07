@@ -564,6 +564,7 @@ $documents = @(
         "- Reset Firebase Observability Logs clears shared Firebase dashboard history for maintenance or fresh runs."
       ),
       New-Section "Services and Test Runner Tab" @(
+        "- Check / Install Prerequisites verifies Git, Node.js 20+, npm, Java JDK 17+, Maven, Excel, and Docker availability.",
         "- Starts and stops FoodHub services.",
         "- Shows app, Swagger, and payment gateway URLs.",
         "- Toggles Live AI with FOODHUB_AI_LIVE.",

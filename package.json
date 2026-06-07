@@ -23,6 +23,7 @@
     "test:load:docker:smoke": "powershell -ExecutionPolicy Bypass -File scripts/runK6Docker.ps1 -Smoke",
     "test:all": "tsx scripts/runParallelFailFastTests.ts",
     "test:report": "tsx scripts/generateTestReport.ts",
+    "prerequisites:check": "powershell -ExecutionPolicy Bypass -File scripts/checkAndInstallPrerequisites.ps1",
     "observability:collect": "tsx scripts/collectObservabilityMetrics.ts",
     "observability:ingest": "tsx scripts/ingestObservabilityMetrics.ts",
     "observability:dashboard:base": "tsx scripts/generateObservabilityDashboard.ts",
