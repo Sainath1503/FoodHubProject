@@ -4,19 +4,11 @@ import swaggerUi from "swagger-ui-express";
 import { z } from "zod";
 import { menu } from "./data/menu.js";
 import { OrderValidationError, PaymentFailedError } from "./errors.js";
+import { orderSchema } from "./schemas/orderSchema.js";
 import { OrderService } from "./services/orderService.js";
 import { FakePaymentGateway } from "./services/paymentService.js";
 import { foodHubOpenApiSpec } from "./openapi.js";
 import { requestLogger } from "./middleware/requestLogger.js";
-const orderSchema = z.object({
-    items: z.array(z.object({
-        menuItemId: z.string().min(1),
-        quantity: z.number().int().positive()
-    })),
-    paymentToken: z.string().min(1),
-    cardId: z.string().optional(),
-    customerName: z.string().trim().min(1)
-});
 const serviceName = "foodhub-takeaway-saas";
 export function createApp(orderService = new OrderService(menu, new FakePaymentGateway())) {
     const app = express();
