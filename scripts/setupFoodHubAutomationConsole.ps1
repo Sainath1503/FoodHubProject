@@ -1,6 +1,9 @@
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$setupToolsRoot = Join-Path $repoRoot ".setup-tools"
+$mavenVersionToInstall = "3.9.9"
+$localMavenRoot = Join-Path $setupToolsRoot "apache-maven-$mavenVersionToInstall"
 
 function Write-SetupLog([string]$phase, [string]$tool, [string]$status, [string]$detail = "") {
   $timestamp = Get-Date -Format "HH:mm:ss"
@@ -24,6 +27,16 @@ function Resolve-Executable([string[]]$commands) {
   }
 
   return ""
+}
+
+function Add-PathEntry([string]$path) {
+  if ((Test-Path -LiteralPath $path) -and (($env:Path -split ";") -notcontains $path)) {
+    $env:Path = "$path;$env:Path"
+  }
+}
+
+function Add-LocalToolPaths {
+  Add-PathEntry (Join-Path $localMavenRoot "bin")
 }
 
 function Get-CommandOutput([string]$command, [string[]]$arguments) {
@@ -71,8 +84,60 @@ function Install-WingetPackage([string]$name, [string]$id) {
   Update-ProcessPath
 }
 
+function Try-InstallWingetPackage([string]$name, [string]$id) {
+  if (!(Test-Command "winget")) {
+    Write-SetupLog "Install" $name "SKIPPED" "winget is not available"
+    return $false
+  }
+
+  Write-SetupLog "Install" $name "START" "Installing $id with winget"
+  winget install --id $id --exact --silent --accept-package-agreements --accept-source-agreements
+  if ($LASTEXITCODE -eq 0) {
+    Update-ProcessPath
+    Add-LocalToolPaths
+    return $true
+  }
+
+  Write-SetupLog "Install" $name "WARN" "winget could not install $id; using portable fallback"
+  return $false
+}
+
 function Install-Node20 {
   Install-WingetPackage "Node.js 20+" "OpenJS.NodeJS.LTS"
+}
+
+function Install-PortableMaven {
+  $mavenBin = Join-Path $localMavenRoot "bin"
+  if (Test-Path -LiteralPath (Join-Path $mavenBin "mvn.cmd")) {
+    Add-PathEntry $mavenBin
+    return
+  }
+
+  New-Item -ItemType Directory -Force -Path $setupToolsRoot | Out-Null
+
+  $zipPath = Join-Path $setupToolsRoot "apache-maven-$mavenVersionToInstall-bin.zip"
+  $downloadUrls = @(
+    "https://archive.apache.org/dist/maven/maven-3/$mavenVersionToInstall/binaries/apache-maven-$mavenVersionToInstall-bin.zip",
+    "https://dlcdn.apache.org/maven/maven-3/$mavenVersionToInstall/binaries/apache-maven-$mavenVersionToInstall-bin.zip"
+  )
+
+  foreach ($url in $downloadUrls) {
+    try {
+      Write-SetupLog "Install" "Apache Maven" "START" "Downloading portable Maven $mavenVersionToInstall"
+      Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zipPath
+      break
+    } catch {
+      Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
+      if ($url -eq $downloadUrls[-1]) {
+        throw "Could not download Apache Maven $mavenVersionToInstall. Check internet access or install Maven manually."
+      }
+    }
+  }
+
+  Remove-Item -LiteralPath $localMavenRoot -Recurse -Force -ErrorAction SilentlyContinue
+  Expand-Archive -LiteralPath $zipPath -DestinationPath $setupToolsRoot -Force
+  Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
+  Add-PathEntry $mavenBin
 }
 
 function Run-NpmCommand([string]$command, [string[]]$commandArguments = @()) {
@@ -104,6 +169,8 @@ function Stop-AutomationConsole {
 Write-Host "FoodHub Automation Console setup"
 Write-Host "Repository: $repoRoot"
 Write-Host ""
+
+Add-LocalToolPaths
 
 $nodeMajor = Get-NodeMajorVersion
 $nodeVersion = Get-CommandOutput "node" @("--version")
@@ -149,7 +216,9 @@ if ($mavenVersion) {
   Write-SetupLog "Prerequisite check" "Maven" "OK" $mavenVersion
 } else {
   Write-SetupLog "Prerequisite check" "Maven" "MISSING" "Apache Maven is required"
-  Install-WingetPackage "Apache Maven" "Apache.Maven"
+  if (!(Try-InstallWingetPackage "Apache Maven" "Apache.Maven")) {
+    Install-PortableMaven
+  }
   $mavenCommand = Resolve-Executable @("mvn.cmd", "mvn")
   $mavenVersion = if ($mavenCommand) { (& $mavenCommand "--version" 2>$null | Select-Object -First 1) } else { "" }
   if (!$mavenVersion) {
