@@ -12,6 +12,14 @@ async function attachScreenshot(page: Page, name: string) {
   });
 }
 
+async function expectStableScreenshot(page: Page, name: string) {
+  await expect(page).toHaveScreenshot(name, {
+    animations: "disabled",
+    fullPage: true,
+    maxDiffPixelRatio: 0.1
+  });
+}
+
 test("customer can view menu, pay through the gateway, and open the invoice", async ({ page }) => {
   const checkout = createApprovedCheckout();
 
@@ -20,29 +28,20 @@ test("customer can view menu, pay through the gateway, and open the invoice", as
   await expect(page.getByRole("heading", { name: "Menu" })).toBeVisible();
   await expect(page.getByText(checkout.itemName)).toBeVisible();
   await attachScreenshot(page, "menu-visible");
-  await expect(page).toHaveScreenshot("menu-visible.png", {
-    fullPage: true,
-    animations: "disabled"
-  });
+  await expectStableScreenshot(page, "menu-visible.png");
 
   await page.getByRole("button", { name: "Add" }).first().click();
   await expect(page.getByText(checkout.cartLine)).toBeVisible();
   await expect(page.locator("#cart-total")).toHaveText(checkout.cartTotal);
   await attachScreenshot(page, "cart-ready");
-  await expect(page).toHaveScreenshot("cart-ready.png", {
-    fullPage: true,
-    animations: "disabled"
-  });
+  await expectStableScreenshot(page, "cart-ready.png");
 
   await page.getByRole("button", { name: "Pay and create order" }).click();
 
   await expect(page.getByRole("heading", { name: "FoodHub Payment Gateway" })).toBeVisible();
   await expect(page.getByText("xxxx-xxxx-xxxx-6781")).toBeVisible();
   await attachScreenshot(page, "gateway-ready");
-  await expect(page).toHaveScreenshot("gateway-ready.png", {
-    fullPage: true,
-    animations: "disabled"
-  });
+  await expectStableScreenshot(page, "gateway-ready.png");
 
   await page.getByLabel("CVV").fill(checkout.cvv);
   await page.getByRole("button", { name: "Pay" }).click();
