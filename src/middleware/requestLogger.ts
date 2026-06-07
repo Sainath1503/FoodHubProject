@@ -18,6 +18,7 @@ export function requestLogger(request: Request, response: Response, next: NextFu
       requestId,
       method: request.method,
       path: request.originalUrl,
+      httpVersion: request.httpVersion,
       statusCode: response.statusCode,
       durationMs,
       userAgent: request.header("user-agent") ?? "",
