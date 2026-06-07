@@ -18,6 +18,18 @@ $rootApp = Join-Path $repoRoot "app"
 $rootRuntime = Join-Path $repoRoot "runtime"
 $viewerIcon = Join-Path $viewerRoot "src\main\resources\com\foodhub\tools\qareportviewer\foodhub-report-viewer.ico"
 
+function Clear-GeneratedPath([string]$path) {
+  if (!(Test-Path -LiteralPath $path)) {
+    return
+  }
+
+  Get-ChildItem -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    $_.Attributes = $_.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+  }
+  $item = Get-Item -LiteralPath $path -Force
+  $item.Attributes = $item.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+}
+
 if (!(Test-Path $viewerRoot)) {
   throw "QA report viewer project was not found at $viewerRoot"
 }
@@ -58,6 +70,7 @@ foreach ($path in @($rootExe, $rootIcon, $legacyRootExe, $legacyRootIcon, $rootA
   if (!$resolvedPath.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Refusing to clean path outside repository root: $resolvedPath"
   }
+  Clear-GeneratedPath $path
   Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue
 }
 
