@@ -47,24 +47,32 @@ function Get-NodeMajorVersion {
   return 0
 }
 
+function Test-JdkPackagingTools {
+  return !!(Resolve-Executable @("java.exe", "java")) -and !!(Resolve-Executable @("jpackage.exe", "jpackage"))
+}
+
 function Update-ProcessPath {
   $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
   $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
   $env:Path = @($machinePath, $userPath) -join ";"
 }
 
-function Install-Node20 {
+function Install-WingetPackage([string]$name, [string]$id) {
   if (!(Test-Command "winget")) {
-    throw "Node.js 20+ is missing and winget is not available. Install Node.js 20 LTS manually, then run this setup again."
+    throw "$name is missing and winget is not available. Install $name manually, then run this setup again."
   }
 
-  Write-SetupLog "Install" "Node.js 20+" "START" "Installing OpenJS Node.js LTS with winget"
-  winget install --id OpenJS.NodeJS.LTS --exact --silent --accept-package-agreements --accept-source-agreements
+  Write-SetupLog "Install" $name "START" "Installing $id with winget"
+  winget install --id $id --exact --silent --accept-package-agreements --accept-source-agreements
   if ($LASTEXITCODE -ne 0) {
-    throw "winget could not install Node.js 20 LTS. Install it manually, then run this setup again."
+    throw "winget could not install $name. Install it manually, then run this setup again."
   }
 
   Update-ProcessPath
+}
+
+function Install-Node20 {
+  Install-WingetPackage "Node.js 20+" "OpenJS.NodeJS.LTS"
 }
 
 function Run-NpmCommand([string]$command, [string[]]$commandArguments = @()) {
@@ -120,6 +128,34 @@ if ($npmVersion) {
   Write-SetupLog "Prerequisite check" "npm" "OK" $npmVersion
 } else {
   throw "npm is missing after Node.js setup. Reinstall Node.js 20 LTS, then run this setup again."
+}
+
+$javaVersion = Get-CommandOutput "java" @("--version")
+if (Test-JdkPackagingTools) {
+  Write-SetupLog "Prerequisite check" "JDK jpackage" "OK" ($javaVersion -replace "`r|`n", " ")
+} else {
+  Write-SetupLog "Prerequisite check" "JDK jpackage" "MISSING" "Java JDK with jpackage is required"
+  Install-WingetPackage "Temurin JDK 17" "EclipseAdoptium.Temurin.17.JDK"
+  if (!(Test-JdkPackagingTools)) {
+    throw "JDK jpackage is still not available after installation. Restart this terminal or machine, then run setup again."
+  }
+  $javaVersion = Get-CommandOutput "java" @("--version")
+  Write-SetupLog "Prerequisite check" "JDK jpackage" "OK" ($javaVersion -replace "`r|`n", " ")
+}
+
+$mavenCommand = Resolve-Executable @("mvn.cmd", "mvn")
+$mavenVersion = if ($mavenCommand) { (& $mavenCommand "--version" 2>$null | Select-Object -First 1) } else { "" }
+if ($mavenVersion) {
+  Write-SetupLog "Prerequisite check" "Maven" "OK" $mavenVersion
+} else {
+  Write-SetupLog "Prerequisite check" "Maven" "MISSING" "Apache Maven is required"
+  Install-WingetPackage "Apache Maven" "Apache.Maven"
+  $mavenCommand = Resolve-Executable @("mvn.cmd", "mvn")
+  $mavenVersion = if ($mavenCommand) { (& $mavenCommand "--version" 2>$null | Select-Object -First 1) } else { "" }
+  if (!$mavenVersion) {
+    throw "Maven is still not available after installation. Restart this terminal or machine, then run setup again."
+  }
+  Write-SetupLog "Prerequisite check" "Maven" "OK" $mavenVersion
 }
 
 Push-Location $repoRoot

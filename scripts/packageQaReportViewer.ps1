@@ -18,6 +18,26 @@ $rootApp = Join-Path $repoRoot "app"
 $rootRuntime = Join-Path $repoRoot "runtime"
 $viewerIcon = Join-Path $viewerRoot "src\main\resources\com\foodhub\tools\qareportviewer\foodhub-report-viewer.ico"
 
+function Resolve-Executable([string[]]$commands) {
+  foreach ($command in $commands) {
+    $resolved = Get-Command $command -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($resolved) {
+      return $resolved.Source
+    }
+  }
+
+  return ""
+}
+
+function Resolve-RequiredExecutable([string]$name, [string[]]$commands) {
+  $resolved = Resolve-Executable $commands
+  if (!$resolved) {
+    throw "$name was not found on PATH. Run SetupFoodHubAutomationConsole.cmd to install prerequisites."
+  }
+
+  return $resolved
+}
+
 function Clear-GeneratedPath([string]$path) {
   if (!(Test-Path -LiteralPath $path)) {
     return
@@ -37,7 +57,8 @@ if (!(Test-Path $viewerRoot)) {
 Push-Location $viewerRoot
 try {
   if (!$SkipMavenPackage) {
-    mvn clean package
+    $mavenCommand = Resolve-RequiredExecutable "Maven" @("mvn.cmd", "mvn")
+    & $mavenCommand clean package
   }
 
   Remove-Item -LiteralPath $packageInput -Recurse -Force -ErrorAction SilentlyContinue
@@ -47,7 +68,8 @@ try {
   Copy-Item -LiteralPath (Join-Path $targetRoot "qa-report-viewer-1.0.0.jar") -Destination $packageInput
   Copy-Item -Path (Join-Path $targetRoot "dependency\*.jar") -Destination $packageInput
 
-  jpackage `
+  $jpackageCommand = Resolve-RequiredExecutable "jpackage" @("jpackage.exe", "jpackage")
+  & $jpackageCommand `
     --type app-image `
     --name FoodHubAutomationConsole `
     --input $packageInput `
