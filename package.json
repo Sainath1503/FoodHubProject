@@ -8,7 +8,7 @@
     "dev:app": "tsx watch src/server.ts",
     "dev:payment": "tsx watch src/paymentServer.ts",
     "build": "tsc && npm run build:qa-report-viewer",
-    "build:ci": "tsc",
+    "build:ci": "node ./node_modules/typescript/bin/tsc",
     "build:qa-report-viewer": "powershell -ExecutionPolicy Bypass -File scripts/packageQaReportViewer.ps1",
     "start": "node dist/dev.js",
     "test": "vitest run",
