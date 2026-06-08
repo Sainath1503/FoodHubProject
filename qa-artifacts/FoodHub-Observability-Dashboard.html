@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FoodHub Observability Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+      :root {
+        color: #18231f;
+        background: #f5f7f6;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      header { background: #13211b; color: #fff; padding: 24px clamp(18px, 4vw, 42px); }
+      header p { color: #bed0c8; margin: 6px 0 0; }
+      .tabs { display: flex; gap: 10px; margin-top: 18px; }
+      .tab-button { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); border-radius: 6px; color: #fff; cursor: pointer; font: inherit; font-weight: 800; min-height: 38px; padding: 0 14px; }
+      .tab-button.active { background: #1f6f50; border-color: #1f6f50; }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 { font-size: clamp(1.6rem, 3vw, 2.35rem); margin-bottom: 0; }
+      main { display: grid; gap: 18px; padding: 22px clamp(18px, 4vw, 42px) 34px; }
+      .tab-panel[hidden] { display: none; }
+      .tab-panel { display: grid; gap: 18px; }
+      .kpis { display: grid; gap: 12px; grid-template-columns: repeat(8, minmax(0, 1fr)); }
+      .card, .panel { background: #fff; border: 1px solid #dce5e0; border-radius: 8px; box-shadow: 0 8px 22px rgba(21, 35, 29, .05); }
+      .card { min-height: 112px; padding: 16px; }
+      .card span { color: #62746b; display: block; font-size: .76rem; font-weight: 800; margin-bottom: 8px; text-transform: uppercase; }
+      .card strong { display: block; font-size: 1.8rem; line-height: 1.1; }
+      .card small { color: #62746b; display: block; margin-top: 8px; }
+      .grid { display: grid; gap: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .wide { grid-column: 1 / -1; }
+      .panel { min-height: 360px; padding: 18px; }
+      .panel h2 { font-size: 1.05rem; margin-bottom: 14px; }
+      canvas { max-height: 292px; width: 100%; }
+      table { border-collapse: collapse; font-size: .9rem; width: 100%; }
+      th, td { border-bottom: 1px solid #e4ebe7; padding: 9px 8px; text-align: left; vertical-align: top; }
+      th { color: #52665d; font-size: .75rem; text-transform: uppercase; }
+      .status-passed { color: #187044; font-weight: 800; }
+      .status-failed { color: #b8322a; font-weight: 800; }
+      .status-skipped { color: #6b7780; font-weight: 800; }
+      .muted { color: #62746b; }
+      .trend-list { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 12px; }
+      .trend-pill { background: #f6f8f7; border: 1px solid #dce5e0; border-radius: 6px; padding: 8px 10px; }
+      .trend-pill strong { display: block; }
+      .trend-up { color: #187044; }
+      .trend-down { color: #b8322a; }
+      .trend-flat { color: #62746b; }
+      @media (max-width: 1100px) {
+        .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .grid { grid-template-columns: 1fr; }
+        .trend-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      @media (max-width: 680px) {
+        .kpis { grid-template-columns: 1fr; }
+        .tabs { flex-direction: column; }
+        .trend-list { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>FoodHub Observability Dashboard</h1>
+      <p>Generated at 2026-06-08T11:14:56.017Z from https://foodhub-6ba1c-default-rtdb.firebaseio.com/observability</p>
+      <nav class="tabs" aria-label="Observability dashboard views">
+        <button class="tab-button active" type="button" data-tab="dashboard">Dashboard</button>
+        <button class="tab-button" type="button" data-tab="history">Run History</button>
+      </nav>
+    </header>
+    <main>
+      <section id="dashboard-panel" class="tab-panel">
+        <section class="kpis">
+          <div class="card"><span>Runs So Far</span><strong>82</strong><small>2026-06-06T08:30:00.639Z to 2026-06-08T11:14:44.169Z</small></div>
+          <div class="card"><span>Total Checks</span><strong>2501</strong><small>2335 passed</small></div>
+          <div class="card"><span>Pass Rate</span><strong>93.36%</strong><small>38 failed</small></div>
+          <div class="card"><span>Requests</span><strong>15928</strong><small>4 errors</small></div>
+          <div class="card"><span>Uptime Metrics</span><strong>100%</strong><small>5124/5124 healthy checks</small></div>
+          <div class="card"><span>Any Crashes</span><strong>No</strong><small>0 crash signals</small></div>
+          <div class="card"><span>P95 ms</span><strong>2</strong><small>Avg 0.82 ms</small></div>
+          <div class="card"><span>Error Rate</span><strong>0.03%</strong><small>4 failed requests</small></div>
+        </section>
+
+        <section class="grid">
+          <div class="panel"><h2>Pass / Fail Distribution</h2><canvas id="statusChart"></canvas></div>
+          <div class="panel"><h2>Requests By Route</h2><canvas id="routeChart"></canvas></div>
+          <div class="panel"><h2>Run Trend</h2><canvas id="trendChart"></canvas></div>
+          <div class="panel"><h2>Last Executions By Test Type</h2><canvas id="testExecutionTrendChart"></canvas></div>
+          <div class="panel"><h2>Pass / Fail / Skipped By Test Type</h2><canvas id="testTypeChart"></canvas></div>
+          <div class="panel"><h2>HTTP Status Distribution</h2><canvas id="httpStatusChart"></canvas></div>
+          <div class="panel"><h2>Load Metrics So Far</h2><canvas id="loadChart"></canvas></div>
+          <div class="panel"><h2>Coverage Metrics</h2><canvas id="coverageChart"></canvas></div>
+          <div class="panel"><h2>Service Health</h2><canvas id="healthChart"></canvas></div>
+          <div class="panel">
+            <h2>Test Case Trend Direction</h2>
+            <div class="trend-list">
+              <div class="trend-pill"><strong>Unit</strong><span class="trend-up">increasing (+3)</span></div><div class="trend-pill"><strong>Integration</strong><span class="trend-up">increasing (+8)</span></div><div class="trend-pill"><strong>Contract</strong><span class="trend-flat">flat (0)</span></div><div class="trend-pill"><strong>Coverage</strong><span class="trend-flat">flat (0)</span></div><div class="trend-pill"><strong>E2E</strong><span class="trend-flat">flat (0)</span></div><div class="trend-pill"><strong>Load</strong><span class="trend-flat">flat (0)</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid">
+          <div class="panel">
+            <h2>Recent PR Check Failures</h2>
+            <table><thead><tr><th>generated at</th><th>test type</th><th>failure summary</th></tr></thead><tbody><tr><td>2026-06-08T10:16:27.784Z</td><td>Contract</td><td>2 skipped</td></tr><tr><td>2026-06-08T10:16:27.784Z</td><td>Coverage</td><td>4 skipped (Branches: Skipped, Functions: Skipped, Lines: Skipped, Statements: Skipped)</td></tr><tr><td>2026-06-08T10:16:27.784Z</td><td>E2E</td><td>6 skipped</td></tr><tr><td>2026-06-08T10:16:27.784Z</td><td>Integration</td><td>20 skipped</td></tr><tr><td>2026-06-08T10:16:27.784Z</td><td>Unit</td><td>14 skipped</td></tr><tr><td>2026-06-07T19:06:48.534Z</td><td>Coverage</td><td>4 failed (Branches: Failed, Functions: Failed, Lines: Failed, Statements: Failed)</td></tr><tr><td>2026-06-07T18:50:47.023Z</td><td>Coverage</td><td>4 failed (Branches: Failed, Functions: Failed, Lines: Failed, Statements: Failed)</td></tr><tr><td>2026-06-07T16:46:32.276Z</td><td>Coverage</td><td>4 skipped (Branches: Skipped, Functions: Skipped, Lines: Skipped, Statements: Skipped)</td></tr></tbody></table>
+          </div>
+          <div class="panel">
+            <h2>Recent Request Logs</h2>
+            <table><thead><tr><th>timestamp</th><th>method</th><th>path</th><th>status code</th><th>duration ms</th></tr></thead><tbody><tr><td>2026-06-08T11:14:30.939Z</td><td>POST</td><td>/order</td><td>201</td><td>0</td></tr><tr><td>2026-06-08T11:14:30.936Z</td><td>GET</td><td>/menu</td><td>200</td><td>0</td></tr><tr><td>2026-06-08T11:14:30.934Z</td><td>GET</td><td>/health</td><td>200</td><td>1</td></tr><tr><td>2026-06-08T11:14:29.929Z</td><td>POST</td><td>/order</td><td>201</td><td>0</td></tr><tr><td>2026-06-08T11:14:29.926Z</td><td>GET</td><td>/menu</td><td>200</td><td>1</td></tr><tr><td>2026-06-08T11:14:29.922Z</td><td>GET</td><td>/health</td><td>200</td><td>1</td></tr><tr><td>2026-06-08T11:14:28.918Z</td><td>POST</td><td>/order</td><td>201</td><td>1</td></tr><tr><td>2026-06-08T11:14:28.915Z</td><td>GET</td><td>/menu</td><td>200</td><td>1</td></tr><tr><td>2026-06-08T11:14:28.911Z</td><td>GET</td><td>/health</td><td>200</td><td>1</td></tr><tr><td>2026-06-08T11:14:28.550Z</td><td>POST</td><td>/order</td><td>201</td><td>0</td></tr><tr><td>2026-06-08T11:14:28.546Z</td><td>GET</td><td>/menu</td><td>200</td><td>1</td></tr><tr><td>2026-06-08T11:14:28.542Z</td><td>GET</td><td>/health</td><td>200</td><td>1</td></tr></tbody></table>
+          </div>
+        </section>
+      </section>
+
+      <section id="history-panel" class="tab-panel" hidden>
+        <div class="panel wide">
+          <h2>Run History</h2>
+          <table><thead><tr><th>generated at</th><th>report scope</th><th>total checks</th><th>passed checks</th><th>failed checks</th><th>skipped checks</th><th>request count</th><th>error count</th><th>p95 duration ms</th></tr></thead><tbody><tr><td>2026-06-08T11:14:44.169Z</td><td>All Tests</td><td>52</td><td>52</td><td>0</td><td>0</td><td>14944</td><td>4</td><td>2</td></tr><tr><td>2026-06-08T11:06:01.590Z</td><td>All Tests</td><td>52</td><td>52</td><td>0</td><td>0</td><td>14263</td><td>4</td><td>2</td></tr><tr><td>2026-06-08T10:45:25.083Z</td><td>All Tests</td><td>52</td><td>52</td><td>0</td><td>0</td><td>13582</td><td>4</td><td>2</td></tr><tr><td>2026-06-08T10:26:43.152Z</td><td>All Tests</td><td>52</td><td>52</td><td>0</td><td>0</td><td>12903</td><td>4</td><td>2</td></tr><tr><td>2026-06-08T10:19:10.409Z</td><td>All Tests</td><td>52</td><td>52</td><td>0</td><td>0</td><td>12903</td><td>4</td><td>2</td></tr><tr><td>2026-06-08T10:16:27.784Z</td><td>All Tests</td><td>52</td><td>10</td><td>0</td><td>42</td><td>12222</td><td>4</td><td>2</td></tr><tr><td>2026-06-08T06:09:40.218Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>12167</td><td>4</td><td>2</td></tr><tr><td>2026-06-08T06:02:19.737Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>12167</td><td>4</td><td>2</td></tr><tr><td>2026-06-07T20:18:03.007Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>12157</td><td>1</td><td>2</td></tr><tr><td>2026-06-07T19:42:37.831Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>11488</td><td>1</td><td>2</td></tr><tr><td>2026-06-07T19:39:52.869Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>11488</td><td>1</td><td>2</td></tr><tr><td>2026-06-07T19:09:10.584Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>11488</td><td>1</td><td>2</td></tr><tr><td>2026-06-07T19:06:48.534Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>10819</td><td>1</td><td>2</td></tr><tr><td>2026-06-07T18:57:25.300Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>10142</td><td>1</td><td>2</td></tr><tr><td>2026-06-07T18:55:33.447Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>9470</td><td>1</td><td>2</td></tr><tr><td>2026-06-07T18:50:47.023Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>9470</td><td>1</td><td>2</td></tr><tr><td>2026-06-07T17:14:21.363Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>8815</td><td>1</td><td>1</td></tr><tr><td>2026-06-07T17:10:36.784Z</td><td>Load Tests</td><td>10</td><td>10</td><td>0</td><td>0</td><td>8815</td><td>1</td><td>1</td></tr><tr><td>2026-06-07T17:09:16.516Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>8161</td><td>1</td><td>1</td></tr><tr><td>2026-06-07T17:08:06.227Z</td><td>E2E Tests</td><td>6</td><td>6</td><td>0</td><td>0</td><td>8161</td><td>1</td><td>1</td></tr><tr><td>2026-06-07T17:07:21.951Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>8142</td><td>1</td><td>1</td></tr><tr><td>2026-06-07T17:06:43.657Z</td><td>Contract Tests</td><td>2</td><td>2</td><td>0</td><td>0</td><td>8142</td><td>1</td><td>1</td></tr><tr><td>2026-06-07T17:06:00.725Z</td><td>Integration Tests</td><td>12</td><td>12</td><td>0</td><td>0</td><td>8142</td><td>1</td><td>1</td></tr><tr><td>2026-06-07T17:05:21.530Z</td><td>Unit Tests</td><td>11</td><td>11</td><td>0</td><td>0</td><td>8142</td><td>1</td><td>1</td></tr><tr><td>2026-06-07T17:03:39.295Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>8142</td><td>1</td><td>1</td></tr><tr><td>2026-06-07T16:46:32.276Z</td><td>All Tests</td><td>41</td><td>35</td><td>6</td><td>0</td><td>7462</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T16:18:18.813Z</td><td>Load Tests</td><td>2</td><td>0</td><td>0</td><td>2</td><td>7461</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T16:15:30.096Z</td><td>All Tests</td><td>33</td><td>31</td><td>0</td><td>2</td><td>8437</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T16:14:37.123Z</td><td>Load Tests</td><td>10</td><td>10</td><td>0</td><td>0</td><td>8291</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T16:12:18.192Z</td><td>All Tests</td><td>33</td><td>31</td><td>0</td><td>2</td><td>7636</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T16:04:07.493Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>7460</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T16:00:11.054Z</td><td>Load Tests</td><td>10</td><td>10</td><td>0</td><td>0</td><td>7460</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:52:59.724Z</td><td>Integration Tests</td><td>12</td><td>12</td><td>0</td><td>0</td><td>6806</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:51:52.700Z</td><td>Unit Tests</td><td>11</td><td>11</td><td>0</td><td>0</td><td>6806</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:49:10.011Z</td><td>Load Tests</td><td>2</td><td>0</td><td>0</td><td>2</td><td>6806</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:47:43.767Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>6805</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:44:20.567Z</td><td>Integration Tests</td><td>12</td><td>12</td><td>0</td><td>0</td><td>6153</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:38:09.199Z</td><td>Unit Tests</td><td>11</td><td>11</td><td>0</td><td>0</td><td>6153</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:35:17.710Z</td><td>Load Tests</td><td>2</td><td>0</td><td>0</td><td>2</td><td>6153</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:34:05.857Z</td><td>Load Tests</td><td>10</td><td>10</td><td>0</td><td>0</td><td>6805</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:30:50.178Z</td><td>Unit Tests</td><td>11</td><td>11</td><td>0</td><td>0</td><td>6152</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:28:14.845Z</td><td>All Tests</td><td>33</td><td>0</td><td>2</td><td>31</td><td>6152</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T15:26:28.736Z</td><td>All Tests</td><td>33</td><td>0</td><td>2</td><td>31</td><td>6151</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T14:30:24.333Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>6150</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T14:06:30.396Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>6150</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T13:54:18.878Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>6150</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T13:45:01.658Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>6150</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T13:30:27.924Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>6150</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T13:11:56.579Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>6150</td><td>0</td><td>1</td></tr><tr><td>2026-06-07T12:59:14.434Z</td><td>All Tests</td><td>41</td><td>41</td><td>0</td><td>0</td><td>6150</td><td>0</td><td>1</td></tr></tbody></table>
+        </div>
+      </section>
+    </main>
+    <script>
+      const report = {"generatedAt":"2026-06-08T11:14:56.017Z","storage":"https://foodhub-6ba1c-default-rtdb.firebaseio.com/observability","summary":{"report_scope":"All Firebase Runs So Far","run_count":82,"first_execution_at":"2026-06-06T08:30:00.639Z","last_execution_at":"2026-06-08T11:14:44.169Z","total_checks":2501,"passed_checks":2335,"failed_checks":38,"skipped_checks":128,"request_count":15928,"error_count":4,"avg_duration_ms":0.82,"p95_duration_ms":2,"payment_success_count":5130,"payment_failure_count":3,"pass_pct":93.36,"fail_pct":1.52,"service_uptime_pct":100,"request_error_rate_pct":0.03,"pr_failure_count":40},"latestRun":{"avg_duration_ms":0.81,"error_count":4,"failed_checks":0,"generated_at":"2026-06-08T11:14:44.169Z","p95_duration_ms":2,"passed_checks":52,"payment_failure_count":3,"payment_success_count":4816,"report_scope":"All Tests","request_count":14944,"skipped_checks":0,"total_checks":52},"routeMetrics":[{"route_family":"/menu","request_count":5214,"error_count":0,"avg_duration_ms":0.79,"max_duration_ms":17},{"route_family":"/order","request_count":5133,"error_count":3,"avg_duration_ms":0.47,"max_duration_ms":19},{"route_family":"/health","request_count":5124,"error_count":0,"avg_duration_ms":0.89,"max_duration_ms":18},{"route_family":"static-ui","request_count":386,"error_count":0,"avg_duration_ms":3.78,"max_duration_ms":188},{"route_family":"other","request_count":55,"error_count":1,"avg_duration_ms":4.31,"max_duration_ms":34},{"route_family":"/api-docs","request_count":15,"error_count":0,"avg_duration_ms":15.93,"max_duration_ms":113},{"route_family":"/openapi.json","request_count":1,"error_count":0,"avg_duration_ms":1,"max_duration_ms":1}],"statusMetrics":[{"status_code":200,"request_count":10674},{"status_code":201,"request_count":5130},{"status_code":304,"request_count":120},{"status_code":400,"request_count":3},{"status_code":404,"request_count":1}],"testTypeRollup":[{"test_type":"Unit","executions":61,"last_execution_at":"2026-06-08T11:14:44.169Z","total":689,"passed":653,"failed":0,"skipped":36,"pass_pct":94.78,"fail_pct":0},{"test_type":"Integration","executions":61,"last_execution_at":"2026-06-08T11:14:44.169Z","total":780,"passed":736,"failed":0,"skipped":44,"pass_pct":94.36,"fail_pct":0},{"test_type":"Contract","executions":61,"last_execution_at":"2026-06-08T11:14:44.169Z","total":122,"passed":116,"failed":0,"skipped":6,"pass_pct":95.08,"fail_pct":0},{"test_type":"Coverage","executions":73,"last_execution_at":"2026-06-08T11:14:44.169Z","total":292,"passed":264,"failed":12,"skipped":16,"pass_pct":90.41,"fail_pct":4.11},{"test_type":"E2E","executions":60,"last_execution_at":"2026-06-08T11:14:44.169Z","total":360,"passed":312,"failed":30,"skipped":18,"pass_pct":86.67,"fail_pct":8.33},{"test_type":"Load","executions":67,"last_execution_at":"2026-06-08T11:14:44.169Z","total":550,"passed":518,"failed":8,"skipped":24,"pass_pct":94.18,"fail_pct":1.45}],"testTypeTrend":{"labels":["2026-06-07T19:09:10.584Z","2026-06-07T19:39:52.869Z","2026-06-07T19:42:37.831Z","2026-06-07T20:18:03.007Z","2026-06-08T06:02:19.737Z","2026-06-08T06:09:40.218Z","2026-06-08T10:16:27.784Z","2026-06-08T10:19:10.409Z","2026-06-08T10:26:43.152Z","2026-06-08T10:45:25.083Z","2026-06-08T11:06:01.590Z","2026-06-08T11:14:44.169Z"],"datasets":[{"label":"Unit","values":[11,11,11,11,11,11,14,14,14,14,14,14],"delta":3,"direction":"increasing"},{"label":"Integration","values":[12,12,12,12,12,12,20,20,20,20,20,20],"delta":8,"direction":"increasing"},{"label":"Contract","values":[2,2,2,2,2,2,2,2,2,2,2,2],"delta":0,"direction":"flat"},{"label":"Coverage","values":[0,0,0,0,0,0,0,0,0,0,0,0],"delta":0,"direction":"flat"},{"label":"E2E","values":[6,6,6,6,6,6,6,6,6,6,6,6],"delta":0,"direction":"flat"},{"label":"Load","values":[10,10,10,10,10,10,10,10,10,10,10,10],"delta":0,"direction":"flat"}]},"latestRuns":[{"avg_duration_ms":0.77,"error_count":1,"failed_checks":0,"generated_at":"2026-06-07T19:09:10.584Z","p95_duration_ms":2,"passed_checks":41,"payment_failure_count":0,"payment_success_count":3716,"report_scope":"All Tests","request_count":11488,"skipped_checks":0,"total_checks":41},{"avg_duration_ms":0.77,"error_count":1,"failed_checks":0,"generated_at":"2026-06-07T19:39:52.869Z","p95_duration_ms":2,"passed_checks":41,"payment_failure_count":0,"payment_success_count":3716,"report_scope":"All Tests","request_count":11488,"skipped_checks":0,"total_checks":41},{"avg_duration_ms":0.77,"error_count":1,"failed_checks":0,"generated_at":"2026-06-07T19:42:37.831Z","p95_duration_ms":2,"passed_checks":41,"payment_failure_count":0,"payment_success_count":3716,"report_scope":"All Tests","request_count":11488,"skipped_checks":0,"total_checks":41},{"avg_duration_ms":0.77,"error_count":1,"failed_checks":0,"generated_at":"2026-06-07T20:18:03.007Z","p95_duration_ms":2,"passed_checks":41,"payment_failure_count":0,"payment_success_count":3934,"report_scope":"All Tests","request_count":12157,"skipped_checks":0,"total_checks":41},{"avg_duration_ms":0.77,"error_count":4,"failed_checks":0,"generated_at":"2026-06-08T06:02:19.737Z","p95_duration_ms":2,"passed_checks":41,"payment_failure_count":3,"payment_success_count":3939,"report_scope":"All Tests","request_count":12167,"skipped_checks":0,"total_checks":41},{"avg_duration_ms":0.77,"error_count":4,"failed_checks":0,"generated_at":"2026-06-08T06:09:40.218Z","p95_duration_ms":2,"passed_checks":41,"payment_failure_count":3,"payment_success_count":3939,"report_scope":"All Tests","request_count":12167,"skipped_checks":0,"total_checks":41},{"avg_duration_ms":0.79,"error_count":4,"failed_checks":0,"generated_at":"2026-06-08T10:16:27.784Z","p95_duration_ms":2,"passed_checks":10,"payment_failure_count":3,"payment_success_count":3941,"report_scope":"All Tests","request_count":12222,"skipped_checks":42,"total_checks":52},{"avg_duration_ms":0.79,"error_count":4,"failed_checks":0,"generated_at":"2026-06-08T10:19:10.409Z","p95_duration_ms":2,"passed_checks":52,"payment_failure_count":3,"payment_success_count":4160,"report_scope":"All Tests","request_count":12903,"skipped_checks":0,"total_checks":52},{"avg_duration_ms":0.79,"error_count":4,"failed_checks":0,"generated_at":"2026-06-08T10:26:43.152Z","p95_duration_ms":2,"passed_checks":52,"payment_failure_count":3,"payment_success_count":4160,"report_scope":"All Tests","request_count":12903,"skipped_checks":0,"total_checks":52},{"avg_duration_ms":0.81,"error_count":4,"failed_checks":0,"generated_at":"2026-06-08T10:45:25.083Z","p95_duration_ms":2,"passed_checks":52,"payment_failure_count":3,"payment_success_count":4378,"report_scope":"All Tests","request_count":13582,"skipped_checks":0,"total_checks":52},{"avg_duration_ms":0.81,"error_count":4,"failed_checks":0,"generated_at":"2026-06-08T11:06:01.590Z","p95_duration_ms":2,"passed_checks":52,"payment_failure_count":3,"payment_success_count":4597,"report_scope":"All Tests","request_count":14263,"skipped_checks":0,"total_checks":52},{"avg_duration_ms":0.81,"error_count":4,"failed_checks":0,"generated_at":"2026-06-08T11:14:44.169Z","p95_duration_ms":2,"passed_checks":52,"payment_failure_count":3,"payment_success_count":4816,"report_scope":"All Tests","request_count":14944,"skipped_checks":0,"total_checks":52}],"loadRollup":[{"generated_at":"2026-06-08T11:14:44.169Z","label":"Completed load iterations","value":218,"threshold":218,"unit":"","status":"Passed"},{"generated_at":"2026-06-08T11:14:44.169Z","label":"Configured max virtual users","value":5,"threshold":5,"unit":" VUs","status":"Passed"},{"generated_at":"2026-06-08T11:14:44.169Z","label":"GET /health hits","value":218,"threshold":218,"unit":"","status":"Passed"},{"generated_at":"2026-06-08T11:14:44.169Z","label":"GET /menu hits","value":218,"threshold":218,"unit":"","status":"Passed"},{"generated_at":"2026-06-08T11:14:44.169Z","label":"HTTP p95 response time","value":4.16,"threshold":500,"unit":" ms","status":"Passed"},{"generated_at":"2026-06-08T11:14:44.169Z","label":"HTTP request failure rate","value":0,"threshold":0.05,"unit":"","status":"Passed"},{"generated_at":"2026-06-08T11:14:44.169Z","label":"HTTP requests per second","value":11.7454,"threshold":11.745365877750546,"unit":"/s","status":"Passed"},{"generated_at":"2026-06-08T11:14:44.169Z","label":"Paid order failure rate","value":0,"threshold":0.02,"unit":"","status":"Passed"}],"coverageMetrics":[{"generated_at":"2026-06-08T11:14:44.169Z","label":"Branches","value":94.33,"threshold":90,"status":"Passed"},{"generated_at":"2026-06-08T11:14:44.169Z","label":"Functions","value":100,"threshold":90,"status":"Passed"},{"generated_at":"2026-06-08T11:14:44.169Z","label":"Lines","value":96,"threshold":90,"status":"Passed"},{"generated_at":"2026-06-08T11:14:44.169Z","label":"Statements","value":96,"threshold":90,"status":"Passed"}],"serviceHealth":{"service":"FoodHub API","health_checks":5124,"healthy_checks":5124,"failed_health_checks":0,"uptime_pct":100,"crash_indicators":0,"request_error_rate_pct":0.03,"latest_health_at":"2026-06-08T11:14:30.934Z","latest_health_status":200,"last_crash_at":""},"recentFailures":[{"generated_at":"2026-06-08T10:16:27.784Z","test_type":"Contract","total":2,"passed":0,"failed":0,"skipped":2,"failure_summary":"2 skipped"},{"generated_at":"2026-06-08T10:16:27.784Z","test_type":"Coverage","total":4,"passed":0,"failed":0,"skipped":4,"failure_summary":"4 skipped (Branches: Skipped, Functions: Skipped, Lines: Skipped, Statements: Skipped)"},{"generated_at":"2026-06-08T10:16:27.784Z","test_type":"E2E","total":6,"passed":0,"failed":0,"skipped":6,"failure_summary":"6 skipped"},{"generated_at":"2026-06-08T10:16:27.784Z","test_type":"Integration","total":20,"passed":0,"failed":0,"skipped":20,"failure_summary":"20 skipped"},{"generated_at":"2026-06-08T10:16:27.784Z","test_type":"Unit","total":14,"passed":0,"failed":0,"skipped":14,"failure_summary":"14 skipped"},{"generated_at":"2026-06-07T19:06:48.534Z","test_type":"Coverage","total":4,"passed":0,"failed":4,"skipped":0,"failure_summary":"4 failed (Branches: Failed, Functions: Failed, Lines: Failed, Statements: Failed)"},{"generated_at":"2026-06-07T18:50:47.023Z","test_type":"Coverage","total":4,"passed":0,"failed":4,"skipped":0,"failure_summary":"4 failed (Branches: Failed, Functions: Failed, Lines: Failed, Statements: Failed)"},{"generated_at":"2026-06-07T16:46:32.276Z","test_type":"Coverage","total":4,"passed":0,"failed":0,"skipped":4,"failure_summary":"4 skipped (Branches: Skipped, Functions: Skipped, Lines: Skipped, Statements: Skipped)"}],"latestRequests":[{"duration_ms":0,"method":"POST","path":"/order","request_id":"52d33c25-b72c-4b44-8870-872ff74158d5","route_family":"/order","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":201,"timestamp":"2026-06-08T11:14:30.939Z"},{"duration_ms":0,"method":"GET","path":"/menu","request_id":"63bee24b-6307-4b99-8e75-3e9b99c5a586","route_family":"/menu","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":200,"timestamp":"2026-06-08T11:14:30.936Z"},{"duration_ms":1,"method":"GET","path":"/health","request_id":"2335f2ae-cc2a-498f-bf1b-3c1364b3d0a4","route_family":"/health","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":200,"timestamp":"2026-06-08T11:14:30.934Z"},{"duration_ms":0,"method":"POST","path":"/order","request_id":"9426d105-4d6c-4bc8-b61a-0732e66ff2f8","route_family":"/order","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":201,"timestamp":"2026-06-08T11:14:29.929Z"},{"duration_ms":1,"method":"GET","path":"/menu","request_id":"711f3b06-862a-48bf-affd-0cf9d3fcda1a","route_family":"/menu","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":200,"timestamp":"2026-06-08T11:14:29.926Z"},{"duration_ms":1,"method":"GET","path":"/health","request_id":"ad199eff-77c3-4d47-b51d-8ddf27164424","route_family":"/health","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":200,"timestamp":"2026-06-08T11:14:29.922Z"},{"duration_ms":1,"method":"POST","path":"/order","request_id":"91d8bb05-9d11-4cf3-b799-dd447f57f70e","route_family":"/order","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":201,"timestamp":"2026-06-08T11:14:28.918Z"},{"duration_ms":1,"method":"GET","path":"/menu","request_id":"f2c0806c-5e78-46df-a66b-f2600f568ed8","route_family":"/menu","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":200,"timestamp":"2026-06-08T11:14:28.915Z"},{"duration_ms":1,"method":"GET","path":"/health","request_id":"013c8169-4bd8-43b6-a863-fdf92730710a","route_family":"/health","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":200,"timestamp":"2026-06-08T11:14:28.911Z"},{"duration_ms":0,"method":"POST","path":"/order","request_id":"f43e6d35-cba4-43ee-a466-4e6662e75e3f","route_family":"/order","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":201,"timestamp":"2026-06-08T11:14:28.550Z"},{"duration_ms":1,"method":"GET","path":"/menu","request_id":"21bee475-eb44-4b63-9bb6-cccc62f4ee6b","route_family":"/menu","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":200,"timestamp":"2026-06-08T11:14:28.546Z"},{"duration_ms":1,"method":"GET","path":"/health","request_id":"b04c8bff-7226-4957-ad0a-fa4816712070","route_family":"/health","run_id":"2ea9caf1-6492-4848-ab37-17600acc1736","status_code":200,"timestamp":"2026-06-08T11:14:28.542Z"}]};
+      const palette = ["#1f6f50", "#2b6cb0", "#fb8c00", "#c2185b", "#00acc1", "#6d4c41", "#7b1fa2", "#5d6d7e"];
+      const statusColors = ["#43a047", "#e53935", "#8b98a5"];
+
+      function makeChart(id, config) {
+        const canvas = document.getElementById(id);
+        if (!canvas || typeof Chart === "undefined") return;
+        new Chart(canvas, config);
+      }
+
+      makeChart("statusChart", {
+        type: "doughnut",
+        data: {
+          labels: ["Passed", "Failed", "Skipped"],
+          datasets: [{ data: [report.summary.passed_checks, report.summary.failed_checks, report.summary.skipped_checks], backgroundColor: statusColors }]
+        },
+        options: chartOptions()
+      });
+
+      makeChart("routeChart", {
+        type: "bar",
+        data: {
+          labels: report.routeMetrics.map((item) => item.route_family),
+          datasets: [
+            { label: "Requests", data: report.routeMetrics.map((item) => item.request_count), backgroundColor: "#2b6cb0" },
+            { label: "Errors", data: report.routeMetrics.map((item) => item.error_count), backgroundColor: "#e53935" }
+          ]
+        },
+        options: chartOptions()
+      });
+
+      makeChart("trendChart", {
+        type: "line",
+        data: {
+          labels: report.latestRuns.map((item) => shortDate(item.generated_at)),
+          datasets: [
+            { label: "Passed", data: report.latestRuns.map((item) => item.passed_checks), borderColor: "#43a047", backgroundColor: "rgba(67,160,71,.14)", tension: .3 },
+            { label: "Failed", data: report.latestRuns.map((item) => item.failed_checks), borderColor: "#e53935", backgroundColor: "rgba(229,57,53,.14)", tension: .3 },
+            { label: "P95 ms", data: report.latestRuns.map((item) => item.p95_duration_ms), borderColor: "#00acc1", backgroundColor: "rgba(0,172,193,.14)", tension: .3 }
+          ]
+        },
+        options: chartOptions()
+      });
+
+      makeChart("testExecutionTrendChart", {
+        type: "line",
+        data: {
+          labels: report.testTypeTrend.labels.map(shortDate),
+          datasets: report.testTypeTrend.datasets.map((item, index) => ({
+            label: item.label + " (" + item.direction + ")",
+            data: item.values,
+            borderColor: palette[index % palette.length],
+            backgroundColor: palette[index % palette.length] + "22",
+            tension: .3
+          }))
+        },
+        options: chartOptions()
+      });
+
+      makeChart("testTypeChart", {
+        type: "bar",
+        data: {
+          labels: report.testTypeRollup.map((item) => item.test_type),
+          datasets: [
+            { label: "Passed", data: report.testTypeRollup.map((item) => item.passed), backgroundColor: "#43a047" },
+            { label: "Failed", data: report.testTypeRollup.map((item) => item.failed), backgroundColor: "#e53935" },
+            { label: "Skipped", data: report.testTypeRollup.map((item) => item.skipped), backgroundColor: "#8b98a5" }
+          ]
+        },
+        options: chartOptions({ stacked: true })
+      });
+
+      makeChart("httpStatusChart", {
+        type: "bar",
+        data: {
+          labels: report.statusMetrics.map((item) => String(item.status_code)),
+          datasets: [{ label: "Requests", data: report.statusMetrics.map((item) => item.request_count), backgroundColor: palette }]
+        },
+        options: chartOptions()
+      });
+
+      makeChart("loadChart", {
+        type: "bar",
+        data: {
+          labels: report.loadRollup.map((item) => item.label),
+          datasets: [
+            { label: "Average", data: report.loadRollup.map((item) => item.average_value), backgroundColor: "#2b6cb0" },
+            { label: "Max", data: report.loadRollup.map((item) => item.max_value), backgroundColor: "#fb8c00" },
+            { label: "Latest Threshold", data: report.loadRollup.map((item) => item.threshold), backgroundColor: "#8b98a5" }
+          ]
+        },
+        options: chartOptions()
+      });
+
+      makeChart("coverageChart", {
+        type: "bar",
+        data: {
+          labels: report.coverageMetrics.map((item) => item.label),
+          datasets: [
+            { label: "Coverage %", data: report.coverageMetrics.map((item) => item.value), backgroundColor: "#1f6f50" },
+            { label: "Threshold %", data: report.coverageMetrics.map((item) => item.threshold), backgroundColor: "#8b98a5" }
+          ]
+        },
+        options: chartOptions()
+      });
+
+      makeChart("healthChart", {
+        type: "bar",
+        data: {
+          labels: ["Healthy", "Failed", "Crashes", "Error Rate %"],
+          datasets: [{
+            label: "Service Health",
+            data: [
+              report.serviceHealth.healthy_checks,
+              report.serviceHealth.failed_health_checks,
+              report.serviceHealth.crash_indicators,
+              report.serviceHealth.request_error_rate_pct
+            ],
+            backgroundColor: ["#43a047", "#e53935", "#6d4c41", "#fb8c00"]
+          }]
+        },
+        options: chartOptions()
+      });
+
+      function chartOptions(extra = {}) {
+        return {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: "bottom" } },
+          scales: extra.stacked
+            ? { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+            : { y: { beginAtZero: true } }
+        };
+      }
+
+      function shortDate(value) {
+        if (!value) return "";
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+      }
+
+      document.querySelectorAll(".tab-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".tab-button").forEach((item) => item.classList.remove("active"));
+          button.classList.add("active");
+          const selected = button.dataset.tab;
+          document.getElementById("dashboard-panel").hidden = selected !== "dashboard";
+          document.getElementById("history-panel").hidden = selected !== "history";
+        });
+      });
+    </script>
+  </body>
+</html>

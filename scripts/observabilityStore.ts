@@ -6,6 +6,7 @@ export const rawDir = path.join(observabilityDir, "raw");
 export const metricsDir = path.join(observabilityDir, "metrics");
 export const legacyDbPath = path.join(observabilityDir, "foodhub-observability.sqlite");
 export const dashboardPath = path.resolve("qa-artifacts", "FoodHub-Observability-Dashboard.xlsx");
+export const htmlDashboardPath = path.resolve("qa-artifacts", "FoodHub-Observability-Dashboard.html");
 export const latestMetricsPath = path.join(metricsDir, "latest-observability-metrics.json");
 
 export const firebaseDatabaseUrl =

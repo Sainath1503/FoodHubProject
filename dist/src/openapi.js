@@ -29,7 +29,7 @@ export const foodHubOpenApiSpec = {
                 tags: ["FoodHub App", "Payment Gateway"],
                 summary: "Check service health",
                 description: "Both FoodHub Takeaway SaaS on port 4173 and FoodHub Payment Gateway on port 4174 expose GET /health.",
-                servers: [{ url: "http://127.0.0.1:4173" }, { url: "http://127.0.0.1:4174" }],
+                servers: [{ url: "/" }],
                 responses: {
                     "200": {
                         description: "Service is running",
@@ -61,7 +61,7 @@ export const foodHubOpenApiSpec = {
             get: {
                 tags: ["FoodHub App"],
                 summary: "Fetch takeaway menu",
-                servers: [{ url: "http://127.0.0.1:4173" }],
+                servers: [{ url: "/" }],
                 responses: {
                     "200": {
                         description: "Menu items",
@@ -79,7 +79,7 @@ export const foodHubOpenApiSpec = {
                 tags: ["FoodHub App"],
                 summary: "Create an order after gateway payment",
                 description: "Validates menu items, calculates totals, checks the fake payment token returned by FoodHub Payment Gateway, then creates a paid order.",
-                servers: [{ url: "http://127.0.0.1:4173" }],
+                servers: [{ url: "/" }],
                 requestBody: {
                     required: true,
                     content: {

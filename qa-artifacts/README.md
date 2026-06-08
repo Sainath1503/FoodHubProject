@@ -19,6 +19,12 @@ This folder contains QA artifacts created for the FoodHub Takeaway SaaS test str
 - `test-report.html`
   Interactive QA dashboard with Unit, Integration, Contract, E2E, and Load test evidence.
 
+- `FoodHub-Observability-Dashboard.html`
+  Cross-platform observability dashboard with browser-rendered charts for PR artifacts and Linux CI runs.
+
+- `FoodHub-Observability-Dashboard.xlsx`
+  Observability workbook with metrics sheets. Local Windows runs can enhance this workbook with Excel-native charts.
+
 - `coverage/`
   Vitest HTML and JSON summary for the 90%+ critical logic coverage gate.
 
@@ -75,6 +81,31 @@ The report includes:
 - Pact contract evidence under Contract tests
 - k6 thresholds, configured VUs, endpoint hit counts, and total API requests under Load tests
 - Visual regression evidence from Playwright screenshot snapshots for menu visible, cart ready, and gateway ready states.
+
+## Observability Dashboard
+
+Generate the cross-platform observability artifacts with:
+
+```bash
+npm run observability:dashboard:base
+```
+
+This creates:
+
+```text
+qa-artifacts/FoodHub-Observability-Dashboard.xlsx
+qa-artifacts/FoodHub-Observability-Dashboard.html
+```
+
+In PR artifacts, open the `.html` file for charts. The `.xlsx` file contains the same metrics as data sheets, but GitHub-hosted Linux runners cannot use Microsoft Excel COM automation to embed Excel-native chart objects.
+
+For local Windows runs with Excel installed, use:
+
+```bash
+npm run observability:dashboard
+```
+
+That keeps the cross-platform HTML dashboard and also enhances the workbook with Excel-native charts through `scripts/enhanceObservabilityDashboard.ps1`.
 
 ## Feeding Logs To AI
 
