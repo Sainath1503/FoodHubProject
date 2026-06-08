@@ -138,7 +138,7 @@ public class QaReportViewerApp extends Application {
         browserButton("Open Coverage Report", "qa-artifacts/coverage/index.html", reportingArea),
         sectionLabel("Observability"),
         actionButton("Refresh Observability Dashboard", () -> runUtilityCommand("Observability refresh", npm("run", "observability:refresh"), reportingArea)),
-        browserButton("Open Observability Dashboard", "qa-artifacts/FoodHub-Observability-Dashboard.xlsx", reportingArea),
+        browserButton("Open Observability Dashboard", "qa-artifacts/FoodHub-Observability-Dashboard.html", reportingArea),
         actionButton("Reset Firebase Observability Logs", this::confirmAndResetFirebaseObservabilityLogs));
 
     return createTabContent(buttons, reportingArea);

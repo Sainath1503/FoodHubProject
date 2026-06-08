@@ -55,6 +55,17 @@ h2 {
   padding: 8px 12px;
 }
 
+.docs-link {
+  border: 1px solid #b9c0ba;
+  border-radius: 6px;
+  color: #125b42;
+  font-size: 0.9rem;
+  font-weight: 800;
+  min-height: 38px;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
 .layout {
   display: grid;
   gap: 24px;
