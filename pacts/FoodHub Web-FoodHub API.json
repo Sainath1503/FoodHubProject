@@ -104,7 +104,7 @@
               "quantity": 1
             }
           ],
-          "paymentToken": "gateway_paid_test123"
+          "paymentToken": "gateway_paid_card:approved-card:test1"
         },
         "headers": {
           "Content-Type": "application/json"

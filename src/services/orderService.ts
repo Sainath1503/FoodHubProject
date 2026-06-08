@@ -13,7 +13,7 @@ export class OrderService {
   async createOrder(request: OrderRequest): Promise<OrderReceipt> {
     const lines = this.validateAndPrice(request);
     const total = roundMoney(lines.reduce((sum, line) => sum + line.lineTotal, 0));
-    const payment = await this.paymentGateway.charge(total, request.paymentToken);
+    const payment = await this.paymentGateway.charge(total, request.paymentToken, request.cardId);
 
     if (payment.status === "failed") {
       throw new PaymentFailedError(payment.reason);
@@ -47,6 +47,10 @@ export class OrderService {
       const menuItem = this.menu.find((item) => item.id === line.menuItemId);
       if (!menuItem) {
         throw new OrderValidationError(`Unknown menu item: ${line.menuItemId}`);
+      }
+
+      if (!menuItem.available) {
+        throw new OrderValidationError(`Menu item is currently unavailable: ${line.menuItemId}`);
       }
 
       return {

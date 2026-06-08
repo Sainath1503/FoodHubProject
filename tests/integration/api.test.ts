@@ -32,7 +32,8 @@ describe("FoodHub API", () => {
           id: "burger-classic",
           name: "Classic Burger",
           price: 9.5,
-          category: "main"
+          category: "main",
+          available: true
         })
       ])
     );
@@ -99,6 +100,110 @@ describe("FoodHub API", () => {
     expect(response.body).toEqual({
       error: "Invalid order",
       details: "Order must contain at least one item"
+    });
+  });
+
+  it("POST /order ignores manipulated client-side prices and uses server menu prices", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send({
+        ...createOrder([{ menuItemId: "burger-classic", quantity: 2 }]),
+        items: [{ menuItemId: "burger-classic", quantity: 2, price: 0.01 }]
+      })
+      .expect(201);
+
+    expect(response.body.total).toBe(19);
+    expect(response.body.items).toEqual([
+      expect.objectContaining({
+        menuItemId: "burger-classic",
+        quantity: 2,
+        unitPrice: 9.5,
+        lineTotal: 19
+      })
+    ]);
+  });
+
+  it("POST /order rejects decimal quantities sent directly to the API", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send({
+        ...createOrder(),
+        items: [{ menuItemId: "burger-classic", quantity: 1.5 }]
+      })
+      .expect(400);
+
+    expect(response.body.error).toBe("Invalid order");
+  });
+
+  it("POST /order rejects negative quantities sent directly to the API", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send({
+        ...createOrder(),
+        items: [{ menuItemId: "burger-classic", quantity: -1 }]
+      })
+      .expect(400);
+
+    expect(response.body.error).toBe("Invalid order");
+  });
+
+  it("POST /order rejects zero quantities sent directly to the API", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send({
+        ...createOrder(),
+        items: [{ menuItemId: "burger-classic", quantity: 0 }]
+      })
+      .expect(400);
+
+    expect(response.body.error).toBe("Invalid order");
+  });
+
+  it("POST /order rejects quantities above the supported limit", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send(createBoundaryQuantityOrder(21))
+      .expect(400);
+
+    expect(response.body.error).toBe("Invalid order");
+  });
+
+  it("POST /order rejects sold-out items even if the client submits them directly", async () => {
+    const response = await request(app)
+      .post("/order")
+      .send(createOrder([{ menuItemId: "salad-crunch", quantity: 1 }]))
+      .expect(400);
+
+    expect(response.body).toEqual({
+      error: "Invalid order",
+      details: "Menu item is currently unavailable: salad-crunch"
+    });
+  });
+
+  it("POST /order rejects replayed payment tokens", async () => {
+    const order = createOrder([{ menuItemId: "burger-classic", quantity: 1 }]);
+
+    await request(app).post("/order").send(order).expect(201);
+
+    const response = await request(app).post("/order").send(order).expect(402);
+
+    expect(response.body).toEqual({
+      error: "Payment failed",
+      details: "Payment token has already been used"
+    });
+  });
+
+  it("POST /order rejects a payment token bound to a different card ID", async () => {
+    const order = {
+      ...createOrder([{ menuItemId: "burger-classic", quantity: 1 }]),
+      cardId: "declined-card"
+    };
+
+    const response = await request(app).post("/order").send(order).expect(402);
+
+    expect(response.body).toEqual({
+      error: "Payment failed",
+      details: "Payment token does not match submitted card"
     });
   });
 

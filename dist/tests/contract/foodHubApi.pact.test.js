@@ -9,6 +9,7 @@ const jsonContentType = MatchersV3.regex(/^application\/json(; ?charset=utf-8)?$
 process.env.PACT_DO_NOT_TRACK = "true";
 describe("FoodHub API Pact contract", () => {
     it("generates and verifies the FoodHub Web consumer contract", async () => {
+        const paidOrderRequest = createOrder([{ menuItemId: "burger-classic", quantity: 1 }]);
         await new PactV3({
             consumer: "FoodHub Web",
             provider: "FoodHub API",
@@ -45,7 +46,7 @@ describe("FoodHub API Pact contract", () => {
                 headers: {
                     "Content-Type": jsonContentType
                 },
-                body: createOrder([{ menuItemId: "burger-classic", quantity: 1 }])
+                body: paidOrderRequest
             },
             willRespondWith: {
                 status: 201,
@@ -80,7 +81,7 @@ describe("FoodHub API Pact contract", () => {
             const orderResponse = await fetch(`${mockServer.url}/order`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(createOrder([{ menuItemId: "burger-classic", quantity: 1 }]))
+                body: JSON.stringify(paidOrderRequest)
             });
             expect(orderResponse.status).toBe(201);
             await expect(orderResponse.json()).resolves.toEqual(expect.objectContaining({

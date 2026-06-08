@@ -85,11 +85,15 @@ export function handleSummary(data) {
 
 function createOrder() {
   return {
-    paymentToken: `gateway_paid_load_${__VU}_${__ITER}`,
+    paymentToken: createGatewayPaymentToken("approved-card", `load_${__VU}_${__ITER}`),
     cardId: "approved-card",
     customerName: "FoodHub Load Tester",
     items: orderTemplates[Math.floor(Math.random() * orderTemplates.length)]
   };
+}
+
+function createGatewayPaymentToken(cardId, paymentId) {
+  return `gateway_paid_card:${encodeURIComponent(cardId)}:${paymentId}`;
 }
 
 function textSummary(data) {

@@ -94,6 +94,10 @@ h2 {
   margin-bottom: 0;
 }
 
+.menu-item.unavailable {
+  opacity: 0.72;
+}
+
 .item-actions {
   align-items: center;
   display: flex;

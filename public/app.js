@@ -71,9 +71,12 @@ function renderMenu() {
       </div>
       <div class="item-actions">
         <span class="price">${money(item.price)}</span>
-        <button type="button" data-add="${item.id}">Add</button>
+        <button type="button" data-add="${item.id}" ${item.available ? "" : "disabled"}>${item.available ? "Add" : "Sold out"}</button>
       </div>
     `;
+    if (!item.available) {
+      row.classList.add("unavailable");
+    }
     menuList.append(row);
   }
 }
@@ -255,7 +258,7 @@ async function completeReturnedPayment() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      paymentToken: `gateway_paid_${paymentId}`,
+      paymentToken: `gateway_paid_card:${encodeURIComponent(pendingOrder.cardId)}:${paymentId}`,
       cardId: pendingOrder.cardId,
       customerName: pendingOrder.customerName,
       items: pendingOrder.items

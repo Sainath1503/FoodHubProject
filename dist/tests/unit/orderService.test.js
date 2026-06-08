@@ -34,12 +34,16 @@ describe("OrderService", () => {
                 lineTotal: 2.5
             }
         ]);
-        expect(paymentGateway.charge).toHaveBeenCalledWith(21.5, "gateway_paid_test123");
+        expect(paymentGateway.charge).toHaveBeenCalledWith(21.5, expect.stringMatching(/^gateway_paid_card:approved-card:test\d+$/), "approved-card");
         expect(receipt.customerName).toBe("FoodHub Demo User");
     });
     it("rejects unknown menu items", async () => {
         const service = new OrderService(menu, gateway());
         await expect(service.createOrder(createInvalidOrder())).rejects.toBeInstanceOf(OrderValidationError);
+    });
+    it("rejects unavailable menu items", async () => {
+        const service = new OrderService(menu, gateway());
+        await expect(service.createOrder(createOrder([{ menuItemId: "salad-crunch", quantity: 1 }]))).rejects.toBeInstanceOf(OrderValidationError);
     });
     it("surfaces payment failures", async () => {
         const service = new OrderService(menu, gateway({
