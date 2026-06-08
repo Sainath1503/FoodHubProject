@@ -57,6 +57,10 @@ The checkout also includes an AI-assisted recommendation endpoint. It uses deter
 
 Payment is handled by a separate fake service named **FoodHub Payment Gateway** on port `4174`. The main app launches the gateway with the selected masked card, the user enters a fake card user name and CVV, and the order is created only after the gateway returns an approved payment result.
 
+On Vercel, the fake payment gateway UI is served from the same deployment at `/payment` because Vercel does not run the separate local gateway process on port `4174`. Local development can still run the app on `4173` and the gateway on `4174`.
+
+The order API treats the browser as untrusted. It calculates prices from the server-side menu, rejects unknown or unavailable menu items, rejects decimal, zero, negative, and above-limit quantities, rejects payment tokens that do not match the submitted card ID, and rejects replayed fake payment tokens for the lifetime of the running fake gateway instance. This is a demo payment gateway, not production payment security.
+
 ## Commands
 
 ```bash
@@ -85,6 +89,8 @@ Swagger/OpenAPI documentation is available at:
 - FoodHub app: `http://127.0.0.1:4173/api-docs`
 - Payment gateway: `http://127.0.0.1:4174/api-docs`
 - Raw OpenAPI JSON: `http://127.0.0.1:4173/openapi.json`
+
+On Vercel, use the deployed origin instead of the local host names. The main app is `/`, the fake payment gateway page is `/payment`, Swagger UI is `/api-docs`, and raw OpenAPI JSON is `/openapi.json`.
 
 The HTML test report is generated at `qa-artifacts/test-report.html`.
 The Playwright E2E report is generated at `playwright-report/index.html` and includes UI screenshots attached from the E2E checks.

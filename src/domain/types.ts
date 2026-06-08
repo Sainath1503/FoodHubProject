@@ -4,6 +4,7 @@ export type MenuItem = {
   description: string;
   price: number;
   category: "main" | "side" | "drink";
+  available: boolean;
 };
 
 export type OrderLine = {
@@ -14,7 +15,7 @@ export type OrderLine = {
 export type OrderRequest = {
   items: OrderLine[];
   paymentToken: string;
-  cardId?: string;
+  cardId: string;
   customerName: string;
 };
 
@@ -39,7 +40,7 @@ export type PaymentResult =
   | { status: "failed"; reason: string };
 
 export type PaymentGateway = {
-  charge(amount: number, paymentToken: string): Promise<PaymentResult>;
+  charge(amount: number, paymentToken: string, cardId: string): Promise<PaymentResult>;
 };
 
 export type OrderRepository = {

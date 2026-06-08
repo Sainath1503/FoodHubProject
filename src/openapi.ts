@@ -10,6 +10,10 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
   },
   servers: [
     {
+      url: "/",
+      description: "Current FoodHub deployment"
+    },
+    {
       url: "http://127.0.0.1:4173",
       description: "FoodHub Takeaway SaaS"
     },
@@ -90,7 +94,7 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
                 approved: {
                   summary: "Approved gateway payment",
                   value: {
-                    paymentToken: "gateway_paid_test123",
+                    paymentToken: "gateway_paid_card:approved-card:test123",
                     cardId: "approved-card",
                     customerName: "FoodHub Demo User",
                     items: [
@@ -153,9 +157,9 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
     "/": {
       get: {
         tags: ["Payment Gateway"],
-        summary: "Launch FoodHub Payment Gateway UI",
+        summary: "Launch local FoodHub Payment Gateway UI",
         description:
-          "Browser page used by the checkout flow. The main app redirects here with amount, maskedNumber, outcome, cardholder, cardId, and returnUrl query parameters.",
+          "Local browser page used by the checkout flow when the fake payment gateway runs on port 4174.",
         servers: [{ url: "http://127.0.0.1:4174" }],
         parameters: [
           { name: "amount", in: "query", schema: { type: "number", example: 9.5 } },
@@ -168,6 +172,32 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
           { name: "outcome", in: "query", schema: { type: "string", enum: ["approved", "declined"] } },
           { name: "cardholder", in: "query", schema: { type: "string", example: "FoodHub Demo User" } },
           { name: "returnUrl", in: "query", schema: { type: "string", example: "http://127.0.0.1:4173/" } }
+        ],
+        responses: {
+          "200": {
+            description: "Payment gateway HTML page"
+          }
+        }
+      }
+    },
+    "/payment": {
+      get: {
+        tags: ["Payment Gateway"],
+        summary: "Launch deployed FoodHub Payment Gateway UI",
+        description:
+          "Vercel-friendly payment gateway page served from the same FoodHub deployment. The main app redirects here with amount, maskedNumber, outcome, cardholder, cardId, and returnUrl query parameters.",
+        servers: [{ url: "/" }],
+        parameters: [
+          { name: "amount", in: "query", schema: { type: "number", example: 9.5 } },
+          { name: "cardId", in: "query", schema: { type: "string", example: "approved-card" } },
+          {
+            name: "maskedNumber",
+            in: "query",
+            schema: { type: "string", example: "xxxx-xxxx-xxxx-6781" }
+          },
+          { name: "outcome", in: "query", schema: { type: "string", enum: ["approved", "declined"] } },
+          { name: "cardholder", in: "query", schema: { type: "string", example: "FoodHub Demo User" } },
+          { name: "returnUrl", in: "query", schema: { type: "string", example: "https://foodhub.vercel.app/" } }
         ],
         responses: {
           "200": {
@@ -196,13 +226,14 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
       },
       MenuItem: {
         type: "object",
-        required: ["id", "name", "description", "price", "category"],
+        required: ["id", "name", "description", "price", "category", "available"],
         properties: {
           id: { type: "string", example: "burger-classic" },
           name: { type: "string", example: "Classic Burger" },
           description: { type: "string", example: "Beef patty, cheddar, lettuce, tomato, house sauce" },
           price: { type: "number", example: 9.5 },
-          category: { type: "string", enum: ["main", "side", "drink"], example: "main" }
+          category: { type: "string", enum: ["main", "side", "drink"], example: "main" },
+          available: { type: "boolean", example: true }
         }
       },
       MenuResponse: {
@@ -225,7 +256,7 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
       },
       OrderRequest: {
         type: "object",
-        required: ["items", "paymentToken", "customerName"],
+        required: ["items", "paymentToken", "cardId", "customerName"],
         properties: {
           items: {
             type: "array",
@@ -233,8 +264,8 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
           },
           paymentToken: {
             type: "string",
-            description: "Fake payment token returned by FoodHub Payment Gateway.",
-            example: "gateway_paid_test123"
+            description: "Fake payment token returned by FoodHub Payment Gateway and bound to the selected card ID.",
+            example: "gateway_paid_card:approved-card:test123"
           },
           cardId: {
             type: "string",

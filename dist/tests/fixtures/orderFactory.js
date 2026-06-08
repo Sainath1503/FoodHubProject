@@ -1,7 +1,10 @@
 import { menu } from "../../src/data/menu.js";
+import { createGatewayPaymentToken } from "../../src/services/paymentService.js";
+let paymentTokenCounter = 0;
 export function createOrder(items = [{ menuItemId: "burger-classic", quantity: 1 }]) {
+    paymentTokenCounter += 1;
     return {
-        paymentToken: "gateway_paid_test123",
+        paymentToken: createGatewayPaymentToken("approved-card", `test${paymentTokenCounter}`),
         cardId: "approved-card",
         customerName: "FoodHub Demo User",
         items
@@ -31,9 +34,10 @@ export function createBoundaryQuantityOrder(quantity) {
 }
 export function createRandomOrder(seed = 1, lineCount = 3) {
     let state = seed;
+    const availableMenu = menu.filter((menuItem) => menuItem.available);
     const lines = Array.from({ length: lineCount }, () => {
         state = (state * 1664525 + 1013904223) % 4294967296;
-        const menuItem = menu[state % menu.length];
+        const menuItem = availableMenu[state % availableMenu.length];
         state = (state * 1664525 + 1013904223) % 4294967296;
         return {
             menuItemId: menuItem.id,
