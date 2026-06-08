@@ -5,8 +5,6 @@
     { "source": "/health", "destination": "/api" },
     { "source": "/menu", "destination": "/api" },
     { "source": "/order", "destination": "/api" },
-    { "source": "/openapi.json", "destination": "/api" },
-    { "source": "/api-docs", "destination": "/api" },
-    { "source": "/api-docs/:path*", "destination": "/api" }
+    { "source": "/openapi.json", "destination": "/api" }
   ]
 }

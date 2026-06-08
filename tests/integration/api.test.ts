@@ -1,4 +1,6 @@
 import request from "supertest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import {
@@ -54,10 +56,19 @@ describe("FoodHub API", () => {
     );
   });
 
-  it("GET /api-docs serves the Swagger UI", async () => {
+  it("GET /api-docs serves the local Express Swagger UI fallback", async () => {
     const response = await request(app).get("/api-docs/").expect(200);
 
-    expect(response.text).toContain("Swagger UI");
+    expect(response.text).toContain("FoodHub Swagger API Docs");
+    expect(response.text).toContain('url: "/openapi.json"');
+  });
+
+  it("static Swagger page loads the OpenAPI spec from /openapi.json", () => {
+    const staticSwaggerPage = readFileSync(resolve("public/api-docs/index.html"), "utf8");
+
+    expect(staticSwaggerPage).toContain("FoodHub Swagger API Docs");
+    expect(staticSwaggerPage).toContain('url: "/openapi.json"');
+    expect(staticSwaggerPage).toContain("/api-docs/swagger-overrides.css");
   });
 
   it("POST /order creates a paid receipt", async () => {
