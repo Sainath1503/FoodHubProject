@@ -18,7 +18,7 @@ const invoiceOrderId = document.querySelector("#invoice-order-id");
 const invoicePaidVia = document.querySelector("#invoice-paid-via");
 const invoiceCardLast4 = document.querySelector("#invoice-card-last4");
 const invoiceCustomerName = document.querySelector("#invoice-customer-name");
-const gatewayOrigin = "http://127.0.0.1:4174";
+const gatewayOrigin = `${window.location.origin}/payment`;
 
 const state = {
   menu: [],
