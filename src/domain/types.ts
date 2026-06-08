@@ -15,6 +15,7 @@ export type OrderRequest = {
   items: OrderLine[];
   paymentToken: string;
   cardId?: string;
+  customerName: string;
 };
 
 export type OrderReceipt = {
@@ -29,6 +30,7 @@ export type OrderReceipt = {
   total: number;
   paymentStatus: "paid";
   paymentId: string;
+  customerName: string;
   aiSuggestion: string;
 };
 

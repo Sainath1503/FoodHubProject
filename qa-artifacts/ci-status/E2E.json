@@ -1,0 +1,6 @@
+{
+  "check": "E2E",
+  "label": "E2E tests",
+  "status": "passed",
+  "reason": ""
+}

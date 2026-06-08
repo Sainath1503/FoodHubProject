@@ -92,6 +92,7 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
                   value: {
                     paymentToken: "gateway_paid_test123",
                     cardId: "approved-card",
+                    customerName: "FoodHub Demo User",
                     items: [
                       { menuItemId: "wrap-veggie", quantity: 1 },
                       { menuItemId: "lemonade", quantity: 2 }
@@ -103,6 +104,7 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
                   value: {
                     paymentToken: "gateway_declined_test123",
                     cardId: "declined-card",
+                    customerName: "FoodHub Demo User",
                     items: [{ menuItemId: "burger-classic", quantity: 1 }]
                   }
                 }
@@ -223,7 +225,7 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
       },
       OrderRequest: {
         type: "object",
-        required: ["items", "paymentToken"],
+        required: ["items", "paymentToken", "customerName"],
         properties: {
           items: {
             type: "array",
@@ -237,6 +239,10 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
           cardId: {
             type: "string",
             example: "approved-card"
+          },
+          customerName: {
+            type: "string",
+            example: "FoodHub Demo User"
           }
         }
       },
@@ -253,7 +259,7 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
       },
       OrderReceipt: {
         type: "object",
-        required: ["orderId", "items", "total", "paymentStatus", "paymentId", "aiSuggestion"],
+        required: ["orderId", "items", "total", "paymentStatus", "paymentId", "customerName", "aiSuggestion"],
         properties: {
           orderId: { type: "string", format: "uuid" },
           items: {
@@ -263,6 +269,7 @@ export const foodHubOpenApiSpec: OpenApiDocument = {
           total: { type: "number", example: 21.5 },
           paymentStatus: { type: "string", enum: ["paid"], example: "paid" },
           paymentId: { type: "string", example: "pay_test123" },
+          customerName: { type: "string", example: "FoodHub Demo User" },
           aiSuggestion: { type: "string", example: "AI pick: add Loaded Fries to turn this into a fuller meal." }
         }
       },

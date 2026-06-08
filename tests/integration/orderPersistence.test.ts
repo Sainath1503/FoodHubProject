@@ -48,7 +48,8 @@ describe("Order persistence with Testcontainers PostgreSQL", () => {
         orderId: response.body.orderId,
         total: 19,
         paymentStatus: "paid",
-        paymentId: "pay_testcontainers"
+        paymentId: "pay_testcontainers",
+        customerName: "FoodHub Demo User"
       })
     );
     expect(savedOrder?.items).toEqual([

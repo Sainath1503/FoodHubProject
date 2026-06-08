@@ -1,0 +1,6 @@
+{
+  "check": "Coverage",
+  "label": "Critical logic coverage gate",
+  "status": "passed",
+  "reason": ""
+}

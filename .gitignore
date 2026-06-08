@@ -3,6 +3,9 @@ dist
 coverage
 playwright-report
 test-results
-pacts
 qa-artifacts/load-test-summary.json
 .env
+.setup-tools
+qa-report-viewer/target
+/app
+/runtime

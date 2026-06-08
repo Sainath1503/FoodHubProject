@@ -1,0 +1,6 @@
+{
+  "check": "Contract",
+  "label": "Pact contract tests",
+  "status": "passed",
+  "reason": ""
+}

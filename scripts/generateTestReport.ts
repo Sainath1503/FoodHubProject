@@ -1,8 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 type TestStatus = "Passed" | "Failed" | "Skipped";
 type TestType = "Unit" | "Integration" | "Contract" | "E2E" | "Load";
+type CiCheck = TestType | "Coverage";
+
+type CiStatus = {
+  check: CiCheck;
+  label: string;
+  status: "passed" | "failed" | "skipped";
+  reason: string;
+};
 
 type TestCase = {
   id: string;
@@ -34,7 +42,10 @@ const generatedAt = new Date().toISOString();
 const outputDir = path.resolve("qa-artifacts");
 const loadSummaryPath = path.join(outputDir, "load-test-summary.json");
 const coverageSummaryPath = path.join(outputDir, "coverage", "coverage-summary.json");
+const ciStatusDir = path.join(outputDir, "ci-status");
 const outputPath = path.join(outputDir, "test-report.html");
+const selectedType = readSelectedType();
+const ciStatuses = selectedType ? new Map<CiCheck, CiStatus>() : readCiStatuses();
 
 const tests: TestCase[] = [
   test("UNIT-001", "Unit", "tests/unit/orderService.test.ts", "OrderService calculates totals and calls payment with the exact total", 14, "Validates total calculation for multiple order lines and verifies the payment gateway charge amount."),
@@ -70,12 +81,14 @@ const tests: TestCase[] = [
   test("VIS-003", "E2E", "tests/e2e/order-flow.spec.ts", "Payment gateway page matches the visual baseline", 220, "Playwright compares the current gateway-ready screenshot against tests/e2e/order-flow.spec.ts-snapshots/gateway-ready-chromium-win32.png.")
 ];
 
+let reportTests = selectedType ? tests.filter((item) => item.type === selectedType) : tests;
+reportTests = applyCiStatusToTests(reportTests);
 const loadMetrics = readLoadMetrics();
 const coverageMetrics = readCoverageMetrics();
 const addOns = [
   {
     name: "Critical Logic Coverage",
-    status: coverageMetrics.every((metric) => metric.status === "Passed") ? "Passed" : "Failed",
+    status: coverageStatus(),
     details:
       coverageMetrics.length > 0
         ? coverageMetrics.map((metric) => `${metric.label}: ${metric.value}%`).join(", ")
@@ -88,7 +101,8 @@ const addOns = [
       "Playwright compares baseline snapshots for menu-visible, cart-ready, and gateway-ready UI states during E2E execution."
   }
 ];
-tests.push(...loadMetrics.map((metric, index) => ({
+if (!selectedType || selectedType === "Load") {
+  reportTests.push(...loadMetrics.map((metric, index) => ({
   id: `LOAD-${String(index + 1).padStart(3, "0")}`,
   type: "Load" as const,
   file: "tests/load/foodhub-api.k6.js",
@@ -96,16 +110,17 @@ tests.push(...loadMetrics.map((metric, index) => ({
   status: metric.status,
   durationMs: 10_000,
   details: `k6 measured ${metric.value}${metric.unit} against threshold ${metric.threshold}${metric.unit}.`
-})));
+  })));
+}
 
-const testTypes: TestType[] = ["Unit", "Integration", "Contract", "E2E", "Load"];
+const testTypes: TestType[] = selectedType ? [selectedType] : ["Unit", "Integration", "Contract", "E2E", "Load"];
 const statusCounts = {
-  passed: tests.filter((item) => item.status === "Passed").length,
-  failed: tests.filter((item) => item.status === "Failed").length,
-  skipped: tests.filter((item) => item.status === "Skipped").length
+  passed: reportTests.filter((item) => item.status === "Passed").length,
+  failed: reportTests.filter((item) => item.status === "Failed").length,
+  skipped: reportTests.filter((item) => item.status === "Skipped").length
 };
 const byType = testTypes.map((type) => {
-  const typeTests = tests.filter((item) => item.type === type);
+  const typeTests = reportTests.filter((item) => item.type === type);
   return {
     type,
     total: typeTests.length,
@@ -123,23 +138,143 @@ function test(id: string, type: TestType, file: string, name: string, durationMs
   return { id, type, file, name, status: "Passed", durationMs, details };
 }
 
+function readSelectedType(): TestType | undefined {
+  const typeArg = process.argv.find((arg) => arg.startsWith("--type="));
+  if (!typeArg) {
+    return undefined;
+  }
+
+  const value = typeArg.replace("--type=", "");
+  if (["Unit", "Integration", "Contract", "E2E", "Load"].includes(value)) {
+    return value as TestType;
+  }
+
+  throw new Error(`Unsupported report type: ${value}`);
+}
+
+function readCiStatuses(): Map<CiCheck, CiStatus> {
+  const statuses = new Map<CiCheck, CiStatus>();
+  if (!existsSync(ciStatusDir)) {
+    return statuses;
+  }
+
+  for (const file of readDirectoryJsonFiles(ciStatusDir)) {
+    try {
+      const item = JSON.parse(readFileSync(file, "utf8").replace(/^\uFEFF/, "")) as Partial<CiStatus>;
+      if (isCiCheck(item.check) && isCiStatusValue(item.status)) {
+        statuses.set(item.check, {
+          check: item.check,
+          label: String(item.label ?? item.check),
+          status: item.status,
+          reason: String(item.reason ?? "")
+        });
+      }
+    } catch {
+      // Ignore malformed CI status files; the report will fall back to default behavior.
+    }
+  }
+
+  const firstFailed = [...statuses.values()].find((item) => item.status === "failed");
+  if (firstFailed) {
+    for (const check of expectedCiChecks()) {
+      if (!statuses.has(check)) {
+        statuses.set(check, {
+          check,
+          label: `${check} tests`,
+          status: "skipped",
+          reason: `Skipped due to fail-fast after ${firstFailed.label} failed.`
+        });
+      }
+    }
+  }
+
+  return statuses;
+}
+
+function readDirectoryJsonFiles(directory: string): string[] {
+  return existsSync(directory)
+    ? readdirSync(directory)
+      .filter((file) => file.endsWith(".json"))
+      .map((file) => path.join(directory, file))
+    : [];
+}
+
+function expectedCiChecks(): CiCheck[] {
+  return ["Unit", "Integration", "Contract", "Coverage", "E2E", "Load"];
+}
+
+function isCiCheck(value: unknown): value is CiCheck {
+  return typeof value === "string" && expectedCiChecks().includes(value as CiCheck);
+}
+
+function isCiStatusValue(value: unknown): value is CiStatus["status"] {
+  return value === "passed" || value === "failed" || value === "skipped";
+}
+
+function applyCiStatusToTests(items: TestCase[]): TestCase[] {
+  return items.map((item) => {
+    const ciStatus = ciStatuses.get(item.type);
+    if (!ciStatus || ciStatus.status === "passed") {
+      return item;
+    }
+
+    const status: TestStatus = ciStatus.status === "failed" ? "Failed" : "Skipped";
+    const reason = ciStatus.reason || `${ciStatus.label} ${ciStatus.status}.`;
+    return {
+      ...item,
+      status,
+      details: `${reason} ${item.details}`
+    };
+  });
+}
+
+function coverageStatus(): TestStatus {
+  const ciStatus = ciStatuses.get("Coverage");
+  if (ciStatus?.status === "skipped") {
+    return "Skipped";
+  }
+  if (ciStatus?.status === "failed") {
+    return "Failed";
+  }
+  if (!coverageMetrics.length) {
+    return "Skipped";
+  }
+
+  return coverageMetrics.every((metric) => metric.status === "Passed") ? "Passed" : "Failed";
+}
+
 function readLoadMetrics(): LoadMetric[] {
+  const ciStatus = ciStatuses.get("Load");
   if (!existsSync(loadSummaryPath)) {
+    if (ciStatus?.status === "skipped") {
+      return [
+        { label: "Load tests skipped", value: 0, threshold: 1, unit: "", status: "Skipped", chart: false },
+        { label: ciStatus.reason, value: 0, threshold: 1, unit: "", status: "Skipped", chart: false }
+      ];
+    }
+
+    if (ciStatus?.status === "failed") {
+      return [
+        { label: "Load tests failed before summary was produced", value: 1, threshold: 0, unit: "", status: "Failed", chart: false },
+        { label: ciStatus.reason || "Load job failed.", value: 1, threshold: 0, unit: "", status: "Failed", chart: false }
+      ];
+    }
+
     return [
-      { label: "k6 load summary available", value: 0, threshold: 1, unit: "", status: "Skipped" },
-      { label: "Run npm run test:load:docker:smoke to populate load metrics", value: 0, threshold: 1, unit: "", status: "Skipped" }
+      { label: "k6 load summary available", value: 0, threshold: 1, unit: "", status: "Skipped", chart: false },
+      { label: "Run npm run test:load:docker:smoke to populate load metrics", value: 0, threshold: 1, unit: "", status: "Skipped", chart: false }
     ];
   }
 
   const summary = JSON.parse(readFileSync(loadSummaryPath, "utf8"));
-  const p95 = Number(summary.metrics?.http_req_duration?.values?.["p(95)"] ?? 0);
-  const requestFailureRate = Number(summary.metrics?.http_req_failed?.values?.rate ?? 0);
-  const orderFailureRate = Number(summary.metrics?.foodhub_order_failures?.values?.rate ?? 0);
+  const p95 = readK6Metric(summary, "http_req_duration", "p(95)");
+  const requestFailureRate = readK6Metric(summary, "http_req_failed", "rate");
+  const orderFailureRate = readK6Metric(summary, "foodhub_order_failures", "rate");
 
-  const iterations = Number(summary.metrics?.iterations?.values?.count ?? 0);
-  const totalRequests = Number(summary.metrics?.http_reqs?.values?.count ?? iterations * 3);
-  const requestRate = Number(summary.metrics?.http_reqs?.values?.rate ?? 0);
-  const maxVirtualUsers = Number(summary.metrics?.vus_max?.values?.max ?? summary.metrics?.vus_max?.values?.value ?? 0);
+  const iterations = readK6Metric(summary, "iterations", "count");
+  const totalRequests = readK6Metric(summary, "http_reqs", "count") || iterations * 3;
+  const requestRate = readK6Metric(summary, "http_reqs", "rate");
+  const maxVirtualUsers = readK6Metric(summary, "vus_max", "max") || readK6Metric(summary, "vus_max", "value");
 
   return [
     metric("HTTP p95 response time", p95, 500, " ms", true),
@@ -155,8 +290,49 @@ function readLoadMetrics(): LoadMetric[] {
   ];
 }
 
+function readK6Metric(summary: unknown, metricName: string, valueName: string): number {
+  const metrics = summary && typeof summary === "object" && "metrics" in summary
+    ? (summary as { metrics?: Record<string, unknown> }).metrics
+    : undefined;
+  const metricValue = metrics?.[metricName];
+  if (!metricValue || typeof metricValue !== "object") {
+    return 0;
+  }
+
+  const metricRecord = metricValue as Record<string, unknown>;
+  const values = metricRecord.values;
+  if (values && typeof values === "object") {
+    return Number((values as Record<string, unknown>)[valueName] ?? 0);
+  }
+
+  if (valueName === "rate" && typeof metricRecord.rate === "number") {
+    return metricRecord.rate;
+  }
+
+  return Number(metricRecord[valueName] ?? 0);
+}
+
 function readCoverageMetrics(): CoverageMetric[] {
+  const ciStatus = ciStatuses.get("Coverage");
+  if (ciStatus?.status === "skipped") {
+    return [
+      coverageMetric("Lines", 0, "Skipped"),
+      coverageMetric("Statements", 0, "Skipped"),
+      coverageMetric("Functions", 0, "Skipped"),
+      coverageMetric("Branches", 0, "Skipped")
+    ];
+  }
+
   if (!existsSync(coverageSummaryPath)) {
+    if (ciStatus?.status === "failed") {
+      return [
+        coverageMetric("Lines", 0, "Failed"),
+        coverageMetric("Statements", 0, "Failed"),
+        coverageMetric("Functions", 0, "Failed"),
+        coverageMetric("Branches", 0, "Failed")
+      ];
+    }
+
     return [];
   }
 
@@ -170,13 +346,13 @@ function readCoverageMetrics(): CoverageMetric[] {
   ];
 }
 
-function coverageMetric(label: string, value: number): CoverageMetric {
+function coverageMetric(label: string, value: number, forcedStatus?: TestStatus): CoverageMetric {
   const roundedValue = Number(value.toFixed(2));
   return {
     label,
     value: roundedValue,
     threshold: 90,
-    status: roundedValue >= 90 ? "Passed" : "Failed"
+    status: forcedStatus ?? (roundedValue >= 90 ? "Passed" : "Failed")
   };
 }
 
@@ -192,8 +368,9 @@ function metric(label: string, value: number, threshold: number, unit: string, c
 }
 
 function renderHtml() {
-  const report = JSON.stringify({ generatedAt, tests, byType, statusCounts, loadMetrics, coverageMetrics, addOns });
-  const totalDuration = tests.reduce((sum, item) => sum + item.durationMs, 0);
+  const reportScope = selectedType ? `${selectedType} Tests` : "All Tests";
+  const report = JSON.stringify({ generatedAt, tests: reportTests, byType, statusCounts, loadMetrics, coverageMetrics, addOns });
+  const totalDuration = reportTests.reduce((sum, item) => sum + item.durationMs, 0);
 
   return `<!doctype html>
 <html lang="en">
@@ -267,7 +444,7 @@ function renderHtml() {
         <section class="top">
           <div>
             <h2 id="section-title">Dashboard</h2>
-            <p class="muted">Generated at ${generatedAt}. Includes functional, contract, E2E, coverage, and k6 load-test evidence.</p>
+          <p class="muted">Generated at ${generatedAt}. Scope: ${reportScope}.</p>
           </div>
           <span class="badge ${statusCounts.failed === 0 ? "passed" : "failed"}">${statusCounts.failed} failures</span>
         </section>
@@ -325,7 +502,7 @@ function renderHtml() {
         addonPanel.hidden = false;
         loadCharts.hidden = true;
         summaryCards.innerHTML = \`
-          <div class="metric"><span>Total Checks</span><strong>${tests.length}</strong></div>
+          <div class="metric"><span>Total Checks</span><strong>${reportTests.length}</strong></div>
           <div class="metric"><span>Passed</span><strong>${statusCounts.passed}</strong></div>
           <div class="metric"><span>Failed</span><strong>${statusCounts.failed}</strong></div>
           <div class="metric"><span>Total Duration</span><strong>${Math.round(totalDuration / 1000)}s</strong></div>

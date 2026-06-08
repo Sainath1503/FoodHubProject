@@ -42,6 +42,7 @@ describe("OrderService", () => {
       }
     ]);
     expect(paymentGateway.charge).toHaveBeenCalledWith(21.5, "gateway_paid_test123");
+    expect(receipt.customerName).toBe("FoodHub Demo User");
   });
 
   it("rejects unknown menu items", async () => {

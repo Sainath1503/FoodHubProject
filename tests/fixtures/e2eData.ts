@@ -2,6 +2,7 @@ export type E2eCheckoutScenario = {
   itemName: string;
   cartLine: string;
   cartTotal: string;
+  customerName: string;
   cvv: string;
 };
 
@@ -19,6 +20,7 @@ export function createApprovedCheckout(): E2eCheckoutScenario {
     itemName: "Classic Burger",
     cartLine: "1 x Classic Burger",
     cartTotal: "$9.50",
+    customerName: "FoodHub Demo User",
     cvv: "123"
   };
 }

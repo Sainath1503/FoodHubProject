@@ -1,0 +1,44 @@
+import { menu } from "../../src/data/menu.js";
+export function createOrder(items = [{ menuItemId: "burger-classic", quantity: 1 }]) {
+    return {
+        paymentToken: "gateway_paid_test123",
+        cardId: "approved-card",
+        customerName: "FoodHub Demo User",
+        items
+    };
+}
+export function createInvalidOrder() {
+    return createOrder([{ menuItemId: "missing-item", quantity: 1 }]);
+}
+export function createEmptyOrder() {
+    return createOrder([]);
+}
+export function createDeclinedPaymentOrder() {
+    return {
+        ...createOrder([{ menuItemId: "burger-classic", quantity: 1 }]),
+        paymentToken: "gateway_declined_test123",
+        cardId: "declined-card"
+    };
+}
+export function createDuplicateItemOrder() {
+    return createOrder([
+        { menuItemId: "burger-classic", quantity: 1 },
+        { menuItemId: "burger-classic", quantity: 2 }
+    ]);
+}
+export function createBoundaryQuantityOrder(quantity) {
+    return createOrder([{ menuItemId: "burger-classic", quantity }]);
+}
+export function createRandomOrder(seed = 1, lineCount = 3) {
+    let state = seed;
+    const lines = Array.from({ length: lineCount }, () => {
+        state = (state * 1664525 + 1013904223) % 4294967296;
+        const menuItem = menu[state % menu.length];
+        state = (state * 1664525 + 1013904223) % 4294967296;
+        return {
+            menuItemId: menuItem.id,
+            quantity: (state % 3) + 1
+        };
+    });
+    return createOrder(lines);
+}

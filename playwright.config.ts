@@ -12,12 +12,14 @@ export default defineConfig({
     screenshot: "only-on-failure",
     trace: "on-first-retry"
   },
-  webServer: {
-    command: "npm run dev",
-    url: "http://127.0.0.1:4173",
-    reuseExistingServer: !process.env.CI,
-    timeout: 30_000
-  },
+  webServer: process.env.FOODHUB_SKIP_PLAYWRIGHT_WEBSERVER === "true"
+    ? undefined
+    : {
+        command: "npm run dev",
+        url: "http://127.0.0.1:4173",
+        reuseExistingServer: !process.env.CI,
+        timeout: 30_000
+      },
   projects: [
     {
       name: "chromium",
